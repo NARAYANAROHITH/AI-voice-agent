@@ -1,55 +1,89 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 
-type QuickstartPreCallCardProps = {
+interface QuickstartPreCallCardProps {
   isLoading: boolean;
   error: string | null;
-  onStartConversation: () => void;
-};
+  onStart: () => void;
+}
 
 export function QuickstartPreCallCard({
   isLoading,
   error,
-  onStartConversation,
+  onStart,
 }: QuickstartPreCallCardProps) {
   return (
-    <div
-      className="mx-auto flex w-[min(92vw,26.25rem)] animate-fade-up flex-col items-center rounded-[20px] border border-[#2b2b2b] px-10 py-10 text-center shadow-[0_10px_24px_rgba(0,0,0,0.28)]"
-      style={{
-        backgroundImage:
-          'linear-gradient(164.988deg, rgba(54,54,54,0.2) 1.0596%, rgba(0,0,0,0) 96.089%), linear-gradient(90deg, rgb(16,16,16) 0%, rgb(16,16,16) 100%)',
-      }}
-    >
-      <h1 className="text-[28px] font-medium leading-[1.2] text-white">
-        Try Agora&apos;s Voice Agent
-      </h1>
-      <p className="mt-[14px] text-sm font-medium leading-6 text-muted-foreground">
-        Built on Agora&apos;s flagship Conversational AI engine, for effortless
-        agentic conversations.
-      </p>
+    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] p-6">
+      <div className="w-full max-w-md">
+        {/* Card */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1a0a00] via-[#120800] to-[#0a0a0a] border border-[#2a1500] p-10 shadow-2xl shadow-orange-900/20">
+          {/* Decorative glow */}
+          <div className="pointer-events-none absolute -top-20 -right-20 w-64 h-64 rounded-full bg-[#f97316]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-[#dc2626]/10 blur-3xl" />
 
-      <Button
-        onClick={onStartConversation}
-        disabled={isLoading}
-        className="mt-12 h-10 w-full rounded-lg border border-primary bg-primary text-sm font-medium text-black hover:border-white hover:bg-white hover:text-black disabled:hover:border-primary disabled:hover:bg-primary disabled:hover:text-black"
-        aria-label={
-          isLoading
-            ? 'Starting conversation with AI agent'
-            : 'Start conversation with AI agent'
-        }
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Starting...
-          </>
-        ) : (
-          'Start Conversation'
-        )}
-      </Button>
-      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+          {/* Logo */}
+          <div className="relative flex justify-center mb-8">
+            <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-[#f97316] to-[#dc2626] shadow-xl shadow-orange-500/30">
+              <span className="text-4xl">🌶️</span>
+            </div>
+          </div>
+
+          {/* Heading */}
+          <div className="relative text-center mb-8">
+            <h1 className="text-white text-2xl font-bold tracking-tight">Spice Garden</h1>
+            <p className="text-[#f97316] text-sm font-medium mt-1">AI Reservation Assistant</p>
+            <p className="text-[#6b7280] text-sm mt-4 leading-relaxed">
+              Talk to Priya, our AI receptionist. Book, modify, or cancel your table in seconds — in English, Hindi, or Telugu.
+            </p>
+          </div>
+
+          {/* Feature chips */}
+          <div className="relative flex flex-wrap gap-2 justify-center mb-8">
+            {['🗓 Table Booking', '🌐 EN · HI · TE', '⚡ Instant Confirmation'].map((f) => (
+              <span key={f} className="px-3 py-1.5 bg-[#1f1f1f] border border-[#2a2a2a] rounded-full text-[#9ca3af] text-xs font-medium">
+                {f}
+              </span>
+            ))}
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="relative mb-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* CTA Button */}
+          <button
+            id="start-conversation-button"
+            onClick={onStart}
+            disabled={isLoading}
+            className="relative w-full py-3.5 rounded-xl bg-gradient-to-r from-[#f97316] to-[#dc2626] text-white font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20"
+          >
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Connecting to Priya…
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <span>📞</span> Start Conversation
+              </span>
+            )}
+          </button>
+
+          {/* Footer note */}
+          <p className="relative text-center text-[#4b5563] text-xs mt-5">
+            Powered by Agora ConvAI · Sarvam AI · GPT-4o
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
+
+export default QuickstartPreCallCard;

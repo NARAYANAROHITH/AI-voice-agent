@@ -1,0 +1,116 @@
+// Prisma schema for the Spice Garden restaurant booking agent.
+// Database: PostgreSQL (Neon serverless)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Restaurant ───────────────────────────────────────────────────────────────
+
+model Restaurant {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  timezone  String   @default("Asia/Kolkata")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tables    Table[]
+}
+
+// ─── Table ────────────────────────────────────────────────────────────────────
+
+model Table {
+  id           String    @id @default(cuid())
+  restaurantId String
+  tableNumber  Int
+  capacity     Int       // maximum guests this table accommodates
+  location     String?   // e.g. "indoor" | "outdoor" | "private room"
+  isActive     Boolean   @default(true)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  bookings     Booking[]
+
+  @@unique([restaurantId, tableNumber])
+  @@index([restaurantId, isActive])
+}
+
+// ─── Customer ─────────────────────────────────────────────────────────────────
+
+model Customer {
+  id           String    @id @default(cuid())
+  name         String
+  phone        String    @unique   // primary lookup key
+  email        String?
+  language     String?   // last detected language: "en" | "hi" | "te"
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  bookings     Booking[]
+  calls        CallLog[]
+}
+
+// ─── Booking ──────────────────────────────────────────────────────────────────
+
+model Booking {
+  id              String        @id @default(cuid())
+  tableId         String
+  customerId      String
+  restaurantId    String
+  reservationDate DateTime      // date of reservation (midnight UTC)
+  startTime       DateTime      // full datetime when reservation begins (IST stored as UTC)
+  endTime         DateTime      // assumed 2 hours after startTime
+  partySize       Int
+  status          BookingStatus @default(CONFIRMED)
+  specialRequests String?
+  callId          String?       // which CallLog originated this booking
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  table           Table         @relation(fields: [tableId], references: [id])
+  customer        Customer      @relation(fields: [customerId], references: [id])
+
+  @@index([reservationDate, status])
+  @@index([customerId])
+  @@index([tableId, reservationDate])
+  @@index([startTime, endTime, tableId])
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+// ─── CallLog ──────────────────────────────────────────────────────────────────
+
+model CallLog {
+  id          String     @id @default(cuid())
+  channelName String     @unique  // Agora RTC channel name — 1:1 with a session
+  agentId     String?             // Agora ConvAI agent session ID
+  customerId  String?
+  callerPhone String?             // E.164 phone number for telephony calls
+  language    String?             // detected language code: "en" | "hi" | "te"
+  durationSec Int?
+  status      CallStatus @default(IN_PROGRESS)
+  transcript  Json?               // full conversation transcript blob
+  startedAt   DateTime   @default(now())
+  endedAt     DateTime?
+
+  customer    Customer?  @relation(fields: [customerId], references: [id])
+
+  @@index([callerPhone])
+  @@index([startedAt])
+  @@index([status])
+}
+
+enum CallStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  ABANDONED
+}
