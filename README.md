@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Agora Conversational AI Next.js Quickstart
 
 [![Build](https://github.com/AgoraIO-Conversational-AI/agent-quickstart-nextjs/actions/workflows/build-check.yml/badge.svg)](https://github.com/AgoraIO-Conversational-AI/agent-quickstart-nextjs/actions/workflows/build-check.yml)
@@ -199,3 +200,7 @@ Please do **not** open public issues for security reports. Email security@agora.
 ## License
 
 Released under the [MIT License](./LICENSE).
+=======
+# AI-voice-agent
+This is a AI powered voice calling agent which interacts directly with the customers through automated phone calls, responds to their queries and also handles the business tasks such as booking reservations 
+>>>>>>> 9a07924ac639f9c645c0495b3d0d58c50c768245
