@@ -4,6 +4,8 @@ import {
   Agent,
   Area,
   ExpiresIn,
+  Gemini,
+  Groq,
   OpenAI,
   SarvamSTT,
   SarvamTTS,
@@ -96,6 +98,17 @@ function getToolBaseUrl(): string {
 // Agora ConvAI engine calls these webhooks when the LLM invokes a tool.
 function buildRestaurantTools(): LlmTool[] {
   const base = getToolBaseUrl();
+
+  // Agora cloud blocks localhost webhook URLs.
+  // To enable HTTP tool calling in local dev, run `npx localtunnel --port 3000` or `ngrok http 3000`
+  // and set NEXT_PUBLIC_APP_URL to the public HTTPS tunnel URL.
+  if (base.includes('localhost') || base.includes('127.0.0.1')) {
+    console.warn(
+      '[invite-agent] NEXT_PUBLIC_APP_URL is localhost. Agora cloud blocks localhost webhooks. ' +
+      'Tools are disabled until a public HTTPS URL (ngrok/localtunnel/Vercel) is set in NEXT_PUBLIC_APP_URL.',
+    );
+    return [];
+  }
 
   return [
     {
@@ -256,6 +269,58 @@ function buildRestaurantTools(): LlmTool[] {
   ];
 }
 
+function buildLlm(apiKey: string, tools: LlmTool[]) {
+  const modelOverride = process.env.NEXT_LLM_MODEL;
+
+  // Google Gemini API keys (e.g. starting with "AQ." or "AIzaSy")
+  if (apiKey.startsWith('AQ.') || apiKey.startsWith('AIzaSy')) {
+    return new Gemini({
+      apiKey,
+      model: modelOverride || 'gemini-3.5-flash-lite',
+      failureMessage: 'Please wait a moment. Ek pal rukiye.',
+      maxHistory: 20,
+      params: {
+        generationConfig: {
+          temperature: 0.6,
+          topP: 0.95,
+          maxOutputTokens: 512,
+        },
+      },
+      tools,
+    });
+  }
+
+  // Groq API keys (starting with "gsk_")
+  if (apiKey.startsWith('gsk_')) {
+    return new Groq({
+      apiKey,
+      url: process.env.NEXT_LLM_URL || 'https://api.groq.com/openai/v1/chat/completions',
+      model: modelOverride || 'llama-3.3-70b-versatile',
+      greetingMessage: GREETING,
+      failureMessage: 'Please wait a moment. Ek pal rukiye.',
+      maxHistory: 20,
+      maxTokens: 512,
+      temperature: 0.6,
+      topP: 0.95,
+      tools,
+    });
+  }
+
+  // Standard OpenAI (or custom OpenAI-compatible endpoint)
+  return new OpenAI({
+    apiKey,
+    url: process.env.NEXT_LLM_URL || 'https://api.openai.com/v1/chat/completions',
+    model: modelOverride || 'gpt-4o',
+    greetingMessage: GREETING,
+    failureMessage: 'Please wait a moment. Ek pal rukiye.',
+    maxHistory: 20,
+    maxTokens: 512,
+    temperature: 0.6,
+    topP: 0.95,
+    tools,
+  });
+}
+
 // ─── Route Handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -266,8 +331,12 @@ export async function POST(request: NextRequest) {
 
     const appId = requireEnv('NEXT_PUBLIC_AGORA_APP_ID');
     const appCertificate = requireEnv('NEXT_AGORA_APP_CERTIFICATE');
-    const openAiApiKey = requireEnv('NEXT_LLM_API_KEY');
     const sarvamApiKey = requireEnv('NEXT_SARVAM_API_KEY');
+    const llmApiKey = process.env.NEXT_LLM_API_KEY || process.env.GEMINI_API_KEY;
+
+    if (!llmApiKey) {
+      throw new Error('Missing required environment variable: NEXT_LLM_API_KEY or GEMINI_API_KEY');
+    }
 
     if (!channel_name || !requester_id) {
       return NextResponse.json(
@@ -328,30 +397,15 @@ export async function POST(request: NextRequest) {
           },
         }),
       )
-      // ── LLM: OpenAI GPT-4o (BYOK) ─────────────────────────────────────────
-      // GPT-4o is required for reliable multilingual instruction following
-      // and robust function calling with nested arguments.
-      .withLlm(
-        new OpenAI({
-          apiKey: openAiApiKey,
-          url: 'https://api.openai.com/v1/chat/completions',
-          model: 'gpt-4o',
-          greetingMessage: GREETING,
-          failureMessage: 'Please wait a moment. Ek pal rukiye.',
-          maxHistory: 20,
-          maxTokens: 512,
-          temperature: 0.6,
-          topP: 0.95,
-          tools: buildRestaurantTools(),
-        }),
-      )
+      // ── LLM: Multi-Provider (Gemini / Groq / OpenAI) ─────────────────────
+      .withLlm(buildLlm(llmApiKey, buildRestaurantTools()))
       // ── TTS: Sarvam AI (Bulbul) ───────────────────────────────────────────
       // Indian-native TTS engine. Natively speaks hi-IN, te-IN, and en-IN.
       // The LLM produces text in the detected language; Bulbul renders it.
       .withTts(
         new SarvamTTS({
           key: sarvamApiKey,
-          speaker: 'anushka',           // warm female voice
+          speaker: 'priya',             // Bulbul v3 compatible voice
           targetLanguageCode: 'en-IN',  // Bulbul auto-detects script; en-IN is the fallback
           pace: 1.1,                    // slightly faster for natural phone speech
         }),

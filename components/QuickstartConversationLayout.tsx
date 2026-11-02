@@ -42,6 +42,15 @@ export function QuickstartConversationLayout({
 
         <div className="flex items-center gap-2 md:pr-1">
           {statusPanel}
+          <a
+            href="/dashboard"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-8 inline-flex items-center rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Open Staff Dashboard in new tab"
+          >
+            📊 Dashboard
+          </a>
           <Button
             variant="destructive"
             size="sm"

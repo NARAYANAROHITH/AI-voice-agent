@@ -7,7 +7,13 @@
  *  - 1 restaurant: "Spice Garden"
  *  - 8 tables of varying capacity across indoor/outdoor/private sections
  */
+import process from 'node:process';
 import { PrismaClient } from '@prisma/client';
+
+if (typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile('.env.local'); } catch {}
+  try { process.loadEnvFile('.env'); } catch {}
+}
 
 const prisma = new PrismaClient();
 

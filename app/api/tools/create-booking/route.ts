@@ -35,9 +35,11 @@ export async function POST(req: NextRequest) {
       special_requests?: string;
     };
 
-    if (!date || !time || !party_size || !customer_name || !customer_phone) {
+    const resolvedName = customer_name?.trim() || 'Guest';
+
+    if (!date || !time || !party_size || !customer_phone) {
       return NextResponse.json(
-        { error: 'date, time, party_size, customer_name, and customer_phone are required' },
+        { error: 'date, time, party_size, and customer_phone are required' },
         { status: 400 },
       );
     }
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
       date,
       time,
       partySize: party_size,
-      customerName: customer_name,
+      customerName: resolvedName,
       customerPhone: customer_phone,
       specialRequests: special_requests,
     });

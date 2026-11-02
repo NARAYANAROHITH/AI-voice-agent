@@ -1,18 +1,21 @@
 'use client';
-
-import { useState } from 'react';
+import Link from 'next/link';
 
 interface QuickstartPreCallCardProps {
   isLoading: boolean;
   error: string | null;
-  onStart: () => void;
+  onStartConversation?: () => void;
+  onStart?: () => void;
 }
 
 export function QuickstartPreCallCard({
   isLoading,
   error,
+  onStartConversation,
   onStart,
 }: QuickstartPreCallCardProps) {
+  const handleStart = onStartConversation ?? onStart;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] p-6">
       <div className="w-full max-w-md">
@@ -57,7 +60,7 @@ export function QuickstartPreCallCard({
           {/* CTA Button */}
           <button
             id="start-conversation-button"
-            onClick={onStart}
+            onClick={handleStart}
             disabled={isLoading}
             className="relative w-full py-3.5 rounded-xl bg-gradient-to-r from-[#f97316] to-[#dc2626] text-white font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20"
           >
@@ -76,9 +79,19 @@ export function QuickstartPreCallCard({
             )}
           </button>
 
+          {/* Staff Dashboard Button */}
+          <div className="relative mt-3">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center gap-2 text-xs font-medium text-[#d1d5db] hover:text-white transition-colors py-2.5 px-3 rounded-xl border border-[#2a2a2a] bg-[#171717] hover:bg-[#222222] w-full"
+            >
+              <span>📊</span> Open Staff Dashboard
+            </Link>
+          </div>
+
           {/* Footer note */}
           <p className="relative text-center text-[#4b5563] text-xs mt-5">
-            Powered by Agora ConvAI · Sarvam AI · GPT-4o
+            Powered by Agora ConvAI · Sarvam AI · Gemini
           </p>
         </div>
       </div>

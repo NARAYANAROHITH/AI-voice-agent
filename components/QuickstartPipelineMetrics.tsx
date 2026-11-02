@@ -12,9 +12,9 @@ type QuickstartPipelineMetricsProps = {
 };
 
 const PIPELINE = [
-  { key: 'stt', label: 'Deepgram STT', metricTypes: ['stt', 'asr'] },
-  { key: 'llm', label: 'OpenAI LLM', metricTypes: ['llm', 'mllm'] },
-  { key: 'tts', label: 'MiniMax TTS', metricTypes: ['tts'] },
+  { key: 'stt', label: 'Sarvam STT', metricTypes: ['stt', 'asr'] },
+  { key: 'llm', label: 'Gemini LLM', metricTypes: ['llm', 'mllm'] },
+  { key: 'tts', label: 'Sarvam TTS', metricTypes: ['tts'] },
 ] as const;
 
 function formatMetricName(name: string) {

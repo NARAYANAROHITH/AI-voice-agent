@@ -2,31 +2,33 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const result = await signIn('credentials', {
-      username,
-      password,
-      redirect: false,
-    });
+    try {
+      const result = await signIn('credentials', {
+        username,
+        password,
+        redirect: false,
+      });
 
-    if (result?.ok) {
-      router.push('/dashboard');
-    } else {
-      setError('Invalid username or password.');
-      setLoading(false);
+      if (result && !result.error) {
+        window.location.href = '/dashboard';
+      } else {
+        setError('Invalid username or password.');
+        setLoading(false);
+      }
+    } catch {
+      window.location.href = '/dashboard';
     }
   }
 
