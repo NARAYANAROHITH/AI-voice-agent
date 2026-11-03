@@ -62,7 +62,7 @@ function Sidebar({ pathname }: { pathname: string }) {
   );
 }
 
-function TableCard({ table, date }: { table: Table; date: string }) {
+function TableCard({ table, date: _date }: { table: Table; date: string }) {
   const isBooked = table.bookings.length > 0;
   const occupancy = table.bookings.length;
 
@@ -112,11 +112,12 @@ function TableCard({ table, date }: { table: Table; date: string }) {
 export default function TablesPage() {
   const pathname = usePathname();
   const [tables, setTables] = useState<Table[]>([]);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const [date, setDate] = useState(tomorrowStr); // Default to tomorrow or today
   const [loading, setLoading] = useState(true);
 
   const fetchTables = useCallback(async () => {
-    setLoading(true);
     try {
       const data = await fetch(`/api/tables?date=${date}`).then((r) => r.json());
       setTables(data.tables ?? []);
@@ -127,7 +128,11 @@ export default function TablesPage() {
     }
   }, [date]);
 
-  useEffect(() => { fetchTables(); }, [fetchTables]);
+  useEffect(() => {
+    fetchTables();
+    const timer = setInterval(fetchTables, 4000);
+    return () => clearInterval(timer);
+  }, [fetchTables]);
 
   const available = tables.filter((t) => t.bookings.length === 0 && t.isActive).length;
   const occupied = tables.filter((t) => t.bookings.length > 0).length;
@@ -136,16 +141,38 @@ export default function TablesPage() {
     <div className="flex h-screen bg-[#0a0a0a] text-white overflow-hidden">
       <Sidebar pathname={pathname ?? ''} />
       <main className="flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-10 bg-[#0a0a0a]/80 backdrop-blur border-b border-[#1a1a1a] px-8 py-4 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-[#0a0a0a]/80 backdrop-blur border-b border-[#1a1a1a] px-8 py-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-white font-semibold text-lg">Tables</h1>
-            <p className="text-[#6b7280] text-xs mt-0.5">{available} available · {occupied} booked on {date}</p>
+            <p className="text-[#6b7280] text-xs mt-0.5">{available} available · {occupied} booked on {date} · Live 🟢</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg bg-[#141414] border border-[#222] p-0.5">
+              <button
+                onClick={() => setDate(todayStr)}
+                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                  date === todayStr
+                    ? 'bg-[#f97316] text-white shadow'
+                    : 'text-[#9ca3af] hover:text-white'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setDate(tomorrowStr)}
+                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                  date === tomorrowStr
+                    ? 'bg-[#f97316] text-white shadow'
+                    : 'text-[#9ca3af] hover:text-white'
+                }`}
+              >
+                Tomorrow (Nov 3)
+              </button>
+            </div>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#f97316]" />
-            <button onClick={fetchTables}
-              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-sm text-[#9ca3af] hover:text-white transition-colors">↻ Refresh</button>
+              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-1 text-xs text-white focus:outline-none focus:border-[#f97316]" />
+            <button onClick={() => { setLoading(true); fetchTables(); }}
+              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-2.5 py-1 text-xs text-[#9ca3af] hover:text-white transition-colors">↻ Refresh</button>
           </div>
         </div>
 

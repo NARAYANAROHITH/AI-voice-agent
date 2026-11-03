@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 
@@ -138,20 +138,20 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function DashboardPage() {
   const pathname = usePathname();
-  const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<StatsData>({ todayBookings: 0, confirmedBookings: 0, totalGuests: 0, activeCalls: 0 });
   const [loading, setLoading] = useState(true);
-  const [dateFilter, setDateFilter] = useState(new Date().toISOString().slice(0, 10));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const [dateFilter, setDateFilter] = useState<string>(''); // '' means All Bookings
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
     try {
-      const [resJson, allJson] = await Promise.all([
-        fetch(`/api/reservations?date=${dateFilter}&limit=50`).then((r) => r.json()),
-        fetch(`/api/reservations?limit=1`).then((r) => r.json()),
-      ]);
+      const url = dateFilter
+        ? `/api/reservations?date=${dateFilter}&limit=50`
+        : `/api/reservations?limit=50`;
+      const resJson = await fetch(url).then((r) => r.json());
 
       setBookings(resJson.bookings ?? []);
       setTotal(resJson.total ?? 0);
@@ -172,11 +172,21 @@ export default function DashboardPage() {
     }
   }, [dateFilter]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Initial fetch and auto-refresh every 4s
+  useEffect(() => {
+    fetchData();
+    const timer = setInterval(fetchData, 4000);
+    return () => clearInterval(timer);
+  }, [fetchData]);
 
   function formatTime(iso: string) {
     const d = new Date(iso);
     return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+  }
+
+  function formatDate(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
   }
 
   return (
@@ -185,21 +195,58 @@ export default function DashboardPage() {
 
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-[#0a0a0a]/80 backdrop-blur border-b border-[#1a1a1a] px-8 py-4 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-[#0a0a0a]/80 backdrop-blur border-b border-[#1a1a1a] px-8 py-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-white font-semibold text-lg">Reservations</h1>
-            <p className="text-[#6b7280] text-xs mt-0.5">{total} booking{total !== 1 ? 's' : ''} for {dateFilter}</p>
+            <p className="text-[#6b7280] text-xs mt-0.5">
+              {total} booking{total !== 1 ? 's' : ''} {dateFilter ? `for ${dateFilter}` : '(all upcoming)'} · Auto-updating 🟢
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Quick date filters */}
+            <div className="inline-flex rounded-lg bg-[#141414] border border-[#222] p-0.5">
+              <button
+                onClick={() => setDateFilter('')}
+                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                  dateFilter === ''
+                    ? 'bg-[#f97316] text-white shadow'
+                    : 'text-[#9ca3af] hover:text-white'
+                }`}
+              >
+                All Bookings
+              </button>
+              <button
+                onClick={() => setDateFilter(todayStr)}
+                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                  dateFilter === todayStr
+                    ? 'bg-[#f97316] text-white shadow'
+                    : 'text-[#9ca3af] hover:text-white'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setDateFilter(tomorrowStr)}
+                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                  dateFilter === tomorrowStr
+                    ? 'bg-[#f97316] text-white shadow'
+                    : 'text-[#9ca3af] hover:text-white'
+                }`}
+              >
+                Tomorrow (Nov 3)
+              </button>
+            </div>
+
             <input
               type="date"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#f97316]"
+              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-1 text-xs text-white focus:outline-none focus:border-[#f97316]"
             />
             <button
-              onClick={fetchData}
-              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-sm text-[#9ca3af] hover:text-white transition-colors"
+              onClick={() => { setLoading(true); fetchData(); }}
+              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-2.5 py-1 text-xs text-[#9ca3af] hover:text-white transition-colors"
+              title="Refresh reservations"
             >
               ↻ Refresh
             </button>
@@ -230,7 +277,7 @@ export default function DashboardPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#1f1f1f]">
-                      {['Time', 'Customer', 'Guests', 'Table', 'Status', 'Special Requests'].map((h) => (
+                      {['Date & Time', 'Customer', 'Guests', 'Table', 'Status', 'Special Requests'].map((h) => (
                         <th key={h} className="px-6 py-3 text-left text-xs font-medium text-[#6b7280] uppercase tracking-wider">
                           {h}
                         </th>
@@ -240,10 +287,13 @@ export default function DashboardPage() {
                   <tbody className="divide-y divide-[#1a1a1a]">
                     {bookings.map((b) => (
                       <tr key={b.id} className="hover:bg-[#1a1a1a]/40 transition-colors">
-                        <td className="px-6 py-3.5 text-white font-mono text-xs">{formatTime(b.startTime)}</td>
                         <td className="px-6 py-3.5">
-                          <p className="text-white text-sm">{b.customer.name}</p>
-                          <p className="text-[#6b7280] text-xs flex items-center gap-1.5 mt-0.5">
+                          <p className="text-white font-mono text-xs font-medium">{formatTime(b.startTime)}</p>
+                          <p className="text-[#f97316] text-[11px] font-medium mt-0.5">{formatDate(b.startTime)}</p>
+                        </td>
+                        <td className="px-6 py-3.5">
+                          <p className="text-white text-sm font-medium">{b.customer.name}</p>
+                          <p className="text-[#9ca3af] text-xs flex items-center gap-1.5 mt-0.5">
                             {b.customer.phone} <LangBadge lang={b.customer.language} />
                           </p>
                         </td>
