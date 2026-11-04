@@ -8,38 +8,77 @@ import {
   MiniMaxTTS,
   OpenAI,
 } from 'agora-agents';
+import type { LlmTool } from 'agora-agents';
 import { ClientStartRequest, AgentResponse } from '@/types/conversation';
 import { DEFAULT_AGENT_UID } from '@/lib/agora';
 
 // System prompt that defines the agent's personality and behavior.
 // Swap this out to change what the agent talks about.
-const ADA_PROMPT = `You are **Ada**, an agentic developer advocate from **Agora**. You help developers understand and build with Agora's Conversational AI platform.
+//
+// Kept deliberately short: every extra token is latency before the first
+// spoken word. Business facts (hours, menu) live in TEMPLATE_VARIABLES below
+// and are injected with {{placeholders}} instead of being spelled out here.
+const PRIYA_PROMPT = `You are Priya, the reservation assistant for Spice Garden, an Indian restaurant.
 
-# What Agora Actually Is
-Agora is a real-time communications company. The product you represent is the **Agora Conversational AI Engine** — it lets developers add voice AI agents to any app by connecting ASR, LLM, and TTS into a real-time pipeline over Agora's SD-RTN (Software Defined Real-Time Network). Key facts:
-- The product is called the **Conversational AI Engine** (not "Chorus", not "Harmony", or any other name you might invent)
-- It runs a full ASR → LLM → TTS pipeline with sub-500ms latency
-- It supports Deepgram, Microsoft, and others for ASR; OpenAI, Anthropic, and others for LLM; ElevenLabs, Microsoft, and others for TTS
-- Agora's SD-RTN is its global real-time network infrastructure — not "SDRTN"
-- MCP in this context means **Model Context Protocol** (Anthropic's open standard for connecting AI models to tools/data), not "multi-channel processing"
-- Agora does not have a product called Chorus, Harmony, or any similar name — do not invent product names
+- Answer in 1-2 short spoken sentences. No lists, no markdown.
+- Restaurant hours: {{hours}}. Location: {{address}}.
+- For a booking, call check_availability first with date, time and party size.
+  Never say a slot is free without calling it. If it returns no_table, offer the
+  next closest time from alternatives. If a guest changes date, time or party
+  size, call check_availability again.
+- Confirm the whole booking back once, then say a teammate will text a confirmation.
+- If the tool errors or is unavailable, say checking is unavailable right now and
+  offer to take their name and number for a callback.
+- If asked anything unrelated to the restaurant or bookings, say you can only help
+  with reservations. Never invent dishes, prices or policies.
+- If the caller is hard to hear, ask them to repeat once, then take the details slowly.`;
 
-# Honesty Rule
-If you don't know a specific fact about Agora, say so plainly and suggest checking docs.agora.io. Never invent product names, feature names, or capabilities.
-
-# Persona & Tone
-- Friendly, technically credible, concise. You're a peer who builds things, not a support agent.
-- Plain English. No marketing fluff.
-
-# Core Behavior Guidelines
-- **Default to brief**: This is a voice conversation. Keep most replies to 1–2 sentences. Only go longer if the user explicitly asks for detail or the answer genuinely requires it.
-- **Never list or enumerate**: No bullet points, no numbered steps. Say the single most important thing.
-- **Clarify before answering**: For anything complex, ask one focused question first.
-- **Ask at most one question per turn**: Never stack questions.
-- **Guide, don't lecture**: Unlock the next step, not everything at once.`;
+// Business facts injected into the prompt via template variables, so editing
+// them never lengthens the prompt the model has to read at startup.
+const TEMPLATE_VARIABLES: Record<string, string> = {
+  hours: process.env.RESTAURANT_HOURS ?? '11:30 AM to 10 PM, Tuesday to Sunday',
+  address: process.env.RESTAURANT_ADDRESS ?? 'the downtown Spice Garden location',
+};
 
 // First thing the agent says when a user joins the channel.
-const GREETING = `Hi there! I'm Ada, your virtual assistant from Agora. How can I help?`;
+const GREETING = `Hi! Spice Garden reservations, this is Priya. How can I help?`;
+
+// Inline REST tool for availability lookups. The agent calls it synchronously
+// on every check, so the endpoint must answer from a fast index/cache — never
+// a fan-out of database queries. Point it at a real backend with
+// NEXT_RESERVATIONS_API_URL; {{args.*}} are filled in by the Agora service.
+function availabilityTool(): LlmTool | null {
+  const baseUrl = process.env.NEXT_RESERVATIONS_API_URL;
+  if (!baseUrl) return null;
+
+  return {
+    type: 'function',
+    function: {
+      name: 'check_availability',
+      description:
+        'Check whether a table is free. Call before promising any reservation.',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'ISO date, e.g. 2026-11-08' },
+          time: { type: 'string', description: '24h local time, e.g. 19:30' },
+          party_size: { type: 'integer', description: 'Number of guests' },
+        },
+        required: ['date', 'time', 'party_size'],
+      },
+    },
+    // GET keeps the lookup cacheable and side-effect free: one round trip,
+    // no write, no follow-up read.
+    server: {
+      method: 'GET',
+      url: `${baseUrl.replace(/\/$/, '')}/availability?date={{args.date}}&time={{args.time}}&party_size={{args.party_size}}`,
+      // Fail fast instead of stalling the turn behind a slow backend; the
+      // prompt handles the "checking is unavailable" fallback.
+      timeout_ms: 1200,
+    },
+    execution: { mode: 'sync' },
+  };
+}
 
 // agentUid identifies the AI in the RTC channel and shares its default with the client.
 const agentUid = String(DEFAULT_AGENT_UID);
@@ -71,6 +110,11 @@ export async function POST(request: NextRequest) {
 
     // --- 2. Build and start the agent ---
 
+    // Availability lookup is only advertised to the LLM when a backend is
+    // configured, so an unset env var degrades to a prompt-only agent instead
+    // of a tool that always errors mid-turn.
+    const tool = availabilityTool();
+
     // AgoraClient authenticates API calls to the Agora Conversational AI service.
     // area: change to Area.EU or Area.AP for European or Asia-Pacific deployments.
     const client = new AgoraClient({
@@ -83,31 +127,35 @@ export async function POST(request: NextRequest) {
     // Omit vendor API keys for supported models — AgentKit infers reseller presets on start (see Agora Console / billing).
     const agent = new Agent({
       client,
-      instructions: ADA_PROMPT,
+      instructions: PRIYA_PROMPT,
       greeting: GREETING,
-      failureMessage: 'Please wait a moment.',
-      maxHistory: 50,
+      failureMessage: 'Sorry, I missed that. Could you say it again?',
+      maxHistory: 12,
       // VAD controls how the agent detects the start and end of a user's turn.
+      // Tuned for snappy handoff: the agent starts listening after 320 ms of
+      // silence (down from 480 ms) and barges in after 120 ms of speech.
       turnDetection: {
         config: {
           speech_threshold: 0.5,
           start_of_speech: {
             mode: 'vad',
             vad_config: {
-              interrupt_duration_ms: 160, // ms of speech before interruption triggers
-              prefix_padding_ms: 300, // audio captured before speech is detected
+              interrupt_duration_ms: 120, // ms of speech before interruption triggers
+              prefix_padding_ms: 250, // audio captured before speech is detected
             },
           },
           end_of_speech: {
             mode: 'vad',
             vad_config: {
-              silence_duration_ms: 480, // ms of silence before turn ends
+              silence_duration_ms: 320, // ms of silence before turn ends
             },
           },
         },
       },
       // RTM is required for transcript events in the browser client.
-      // enable_tools is required for MCP tool invocation.
+      // enable_tools turns on the inline REST tool loop for check_availability.
+      // Leave it on even without a tool URL: the flag is what allows any tool
+      // to be added later without changing session startup.
       advancedFeatures: { enable_rtm: true, enable_tools: true },
       // Required for browser RTM events:
       // - data_channel: 'rtm' enables RTM delivery path for state/metrics/errors
@@ -137,13 +185,19 @@ export async function POST(request: NextRequest) {
         new OpenAI({
           model: 'gpt-4o-mini',
           greetingMessage: GREETING,
-          failureMessage: 'Please wait a moment.',
-          maxHistory: 15,
+          failureMessage: 'Sorry, I missed that. Could you say it again?',
+          // Short memory window: fewer tokens in, faster first token out. The
+          // booking state we need lives in the tool results, not the history.
+          maxHistory: 12,
+          templateVariables: TEMPLATE_VARIABLES,
+          // The pipeline streams LLM tokens into TTS as they arrive; keeping
+          // replies to two sentences is what makes that streaming audible.
           params: {
-            max_tokens: 1024,
-            temperature: 0.7,
-            top_p: 0.95,
+            max_tokens: 160,
+            temperature: 0.4,
+            top_p: 0.9,
           },
+          tools: tool ? [tool] : undefined,
         }),
         // BYOK: uncomment the following block and set NEXT_LLM_API_KEY and NEXT_LLM_URL
         // new OpenAI({
@@ -151,11 +205,13 @@ export async function POST(request: NextRequest) {
         //   url: requireEnv('NEXT_LLM_URL'),
         //   model: 'gpt-4o-mini',
         //   greetingMessage: GREETING,
-        //   failureMessage: 'Please wait a moment.',
-        //   maxHistory: 15,
-        //   maxTokens: 1024,
-        //   temperature: 0.7,
-        //   topP: 0.95,
+        //   failureMessage: 'Sorry, I missed that. Could you say it again?',
+        //   maxHistory: 12,
+        //   params: {
+        //     max_tokens: 160,
+        //     temperature: 0.4,
+        //     top_p: 0.9,
+        //   },
         // }),
       )
       .withTts(

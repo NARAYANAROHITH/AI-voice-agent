@@ -8,12 +8,29 @@ All of the managed agent configuration is built in `app/api/invite-agent/route.t
 
 ## Top-Level Constants
 
-| Constant            | Default                                              | Purpose                                                   |
-| ------------------- | ---------------------------------------------------- | --------------------------------------------------------- |
-| `ADA_PROMPT`        | Long-form instructions for "Ada", an Agora assistant | The system prompt for the LLM.                            |
-| `GREETING`          | Friendly first line                                   | Spoken on session start.                                 |
+| Constant            | Default                                                    | Purpose                                                    |
+| ------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| `PRIYA_PROMPT`      | Short, caveman-style instructions for "Priya", Spice Garden | The system prompt for the LLM. Shorter = lower TTFT.       |
+| `TEMPLATE_VARIABLES`| `hours` / `address` from `RESTAURANT_*` env vars           | Fills `{{hours}}` / `{{address}}` in the prompt.           |
+| `GREETING`          | Reservation-desk first line                                | Spoken on session start.                                   |
+| `availabilityTool()`| `check_availability` REST tool, or `null`                  | Built only when `NEXT_RESERVATIONS_API_URL` is set.        |
 
-Agent behavior is configured in code: edit `GREETING` or `ADA_PROMPT` directly.
+Agent behavior is configured in code: edit `GREETING` or `PRIYA_PROMPT` directly.
+
+## Latency Design
+
+The pipeline is already streaming (Deepgram partials → gpt-4o-mini tokens → MiniMax), so per-turn latency is dominated by these knobs:
+
+| Knob                          | Value   | Why                                                        |
+| ----------------------------- | ------- | ---------------------------------------------------------- |
+| `end_of_speech.silence_duration_ms` | `320` | Dead air before the agent replies. Was `480`.        |
+| `start_of_speech.interrupt_duration_ms` | `120` | How fast a caller can barge in. Was `160`.            |
+| `max_tokens`                  | `160`   | Caps a reply at ~2 sentences; keeps streamed TTS short.    |
+| `maxHistory`                  | `12`    | Fewer input tokens → faster first token.                   |
+| Prompt length                 | ~8 lines | Business facts live in `TEMPLATE_VARIABLES`, not the prompt. |
+| `server.timeout_ms` on the tool | `1200` | A slow backend fails fast instead of stalling the turn.   |
+
+Do not "fix" latency by calling the LLM again in a separate route — one turn means one LLM call plus, at most, one tool call.
 
 ## The Agent Builder Chain
 
@@ -23,11 +40,11 @@ Agent behavior is configured in code: edit `GREETING` or `ADA_PROMPT` directly.
 const client = new AgoraClient({ area: Area.US, appId, appCertificate });
 
 const agent = new Agent({
-  name: `conversation-${Date.now()}-${randomHex}`,
-  instructions: ADA_PROMPT,
+  client,
+  instructions: PRIYA_PROMPT,
   greeting: GREETING,
-  failureMessage: 'Please wait a moment.',
-  maxHistory: 50,
+  failureMessage: 'Sorry, I missed that. Could you say it again?',
+  maxHistory: 12,
   turnDetection: {
     config: {
       speech_threshold: 0.5,
@@ -46,15 +63,25 @@ const agent = new Agent({
   .withLlm(new OpenAI({
     model: 'gpt-4o-mini',
     greetingMessage: GREETING,
-    failureMessage: 'Please wait a moment.',
-    maxHistory: 15,
-    params: { max_tokens: 1024, temperature: 0.7, top_p: 0.95 },
+    failureMessage: 'Sorry, I missed that. Could you say it again?',
+    maxHistory: 12,
+    templateVariables: TEMPLATE_VARIABLES,
+    params: { max_tokens: 160, temperature: 0.4, top_p: 0.9 },
+    tools: tool ? [tool] : undefined,
   }))
   .withTts(new MiniMaxTTS({
     model: 'speech_2_6_turbo',
     voiceId: 'English_captivating_female1',
   }));
 ```
+
+## Availability Tool
+
+`check_availability({ date, time, party_size })` is an inline REST tool (`LlmTool`) the Agora service executes synchronously during the turn. It issues a single `GET {NEXT_RESERVATIONS_API_URL}/availability?date=&time=&party_size=` with a 1200 ms timeout.
+
+- Keep the endpoint read-only and served from an index/cache — no write-then-read dance.
+- `enable_tools: true` is required for the tool to be offered to the LLM.
+- Unset `NEXT_RESERVATIONS_API_URL` → no tool is registered, and the prompt tells the agent to take a callback instead of guessing availability.
 
 ## Session Options
 
@@ -85,7 +112,7 @@ const agentId = await session.start();
 
 ### Change the prompt
 
-Edit `ADA_PROMPT`. Keep it under the LLM's context window — `gpt-4o-mini` handles thousands of tokens but very long prompts amplify latency.
+Edit `PRIYA_PROMPT` and keep it short — every extra token is latency before the first spoken word. Put business facts in `TEMPLATE_VARIABLES` (or the `RESTAURANT_*` env vars) and reference them as `{{hours}}` / `{{address}}` instead of writing them into the prompt.
 
 ### Change the greeting
 
@@ -93,7 +120,7 @@ Edit `GREETING` in `app/api/invite-agent/route.ts`.
 
 ### Change VAD behavior
 
-Edit `turnDetection.config.start_of_speech` and `turnDetection.config.end_of_speech`. Both blocks accept the new VAD param shape — do **not** revert to the deprecated `turnDetection.type: 'agora_vad'`.
+Edit `turnDetection.config.start_of_speech` and `turnDetection.config.end_of_speech`. Both blocks accept the new VAD param shape — do **not** revert to the deprecated `turnDetection.type: 'agora_vad'`. Lower `silence_duration_ms` for faster replies; raise it if callers get cut off mid-sentence.
 
 ### Swap the STT model
 

@@ -23,11 +23,11 @@ export function QuickstartPreCallCard({
       }}
     >
       <h1 className="text-[28px] font-medium leading-[1.2] text-white">
-        Try Agora&apos;s Voice Agent
+        Spice Garden Reservations
       </h1>
       <p className="mt-[14px] text-sm font-medium leading-6 text-muted-foreground">
-        Built on Agora&apos;s flagship Conversational AI engine, for effortless
-        agentic conversations.
+        Call the reservation desk. Priya can check availability and book
+        your table in under a minute.
       </p>
 
       <Button

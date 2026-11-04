@@ -8,9 +8,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Talk to your voice agent | Agora',
+  title: 'Spice Garden — AI Reservation Assistant',
   description:
-    "Next.js quickstart: real-time voice agent with live transcript, streaming audio, and low latency from Agora's Conversational AI Engine—API routes in one repo.",
+    'Call the Spice Garden reservation desk: a real-time voice agent that checks table availability and books reservations, built on Agora\'s Conversational AI Engine.',
   icons: {
     icon: [
       { url: '/favicon.ico' },
