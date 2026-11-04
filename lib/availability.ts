@@ -1,6 +1,20 @@
 import { prisma } from './db';
 import { BookingStatus } from '@prisma/client';
 
+async function withDbRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      if (i === retries - 1) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[DB retry] Attempt ${i + 1} failed (${msg}). Retrying in 1s...`);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+  return fn();
+}
+
 export interface TableAvailabilityQuery {
   restaurantId?: string;
   date: string; // YYYY-MM-DD
@@ -71,14 +85,16 @@ export async function findAvailableTables({
   const { startTime, endTime } = parseIstDateTime(date, time);
 
   // 1. Fetch candidate tables that can fit the party
-  const tables = await prisma.table.findMany({
-    where: {
-      ...(restaurantId ? { restaurantId } : {}),
-      isActive: true,
-      capacity: { gte: partySize },
-    },
-    orderBy: [{ capacity: 'asc' }, { tableNumber: 'asc' }],
-  });
+  const tables = await withDbRetry(() =>
+    prisma.table.findMany({
+      where: {
+        ...(restaurantId ? { restaurantId } : {}),
+        isActive: true,
+        capacity: { gte: partySize },
+      },
+      orderBy: [{ capacity: 'asc' }, { tableNumber: 'asc' }],
+    }),
+  );
 
   if (tables.length === 0) {
     return { available: false, reason: 'no_capacity', tables: [] };
@@ -86,15 +102,17 @@ export async function findAvailableTables({
 
   // 2. Fetch overlapping bookings for these candidate tables
   const tableIds = tables.map((t) => t.id);
-  const overlappingBookings = await prisma.booking.findMany({
-    where: {
-      tableId: { in: tableIds },
-      status: BookingStatus.CONFIRMED,
-      startTime: { lt: endTime },
-      endTime: { gt: startTime },
-    },
-    select: { tableId: true },
-  });
+  const overlappingBookings = await withDbRetry(() =>
+    prisma.booking.findMany({
+      where: {
+        tableId: { in: tableIds },
+        status: BookingStatus.CONFIRMED,
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
+      },
+      select: { tableId: true },
+    }),
+  );
 
   const bookedTableIds = new Set(overlappingBookings.map((b) => b.tableId));
   const availableTables = tables.filter((t) => !bookedTableIds.has(t.id));
@@ -152,35 +170,39 @@ export async function createReservation({
 
   // Upsert customer
   const cleanPhone = customerPhone.trim();
-  const customer = await prisma.customer.upsert({
-    where: { phone: cleanPhone },
-    create: {
-      name: customerName.trim(),
-      phone: cleanPhone,
-    },
-    update: {
-      name: customerName.trim(),
-    },
-  });
+  const customer = await withDbRetry(() =>
+    prisma.customer.upsert({
+      where: { phone: cleanPhone },
+      create: {
+        name: customerName.trim(),
+        phone: cleanPhone,
+      },
+      update: {
+        name: customerName.trim(),
+      },
+    }),
+  );
 
   // Create booking
-  const booking = await prisma.booking.create({
-    data: {
-      restaurantId,
-      tableId: bestTable.id,
-      customerId: customer.id,
-      reservationDate,
-      startTime,
-      endTime,
-      partySize,
-      status: BookingStatus.CONFIRMED,
-      specialRequests: specialRequests?.trim() || null,
-    },
-    include: {
-      table: true,
-      customer: true,
-    },
-  });
+  const booking = await withDbRetry(() =>
+    prisma.booking.create({
+      data: {
+        restaurantId,
+        tableId: bestTable.id,
+        customerId: customer.id,
+        reservationDate,
+        startTime,
+        endTime,
+        partySize,
+        status: BookingStatus.CONFIRMED,
+        specialRequests: specialRequests?.trim() || null,
+      },
+      include: {
+        table: true,
+        customer: true,
+      },
+    }),
+  );
 
   return booking;
 }
@@ -190,27 +212,29 @@ export async function createReservation({
  */
 export async function getBookingsByPhone(customerPhone: string) {
   const cleanPhone = customerPhone.trim();
-  const customer = await prisma.customer.findUnique({
-    where: { phone: cleanPhone },
-    include: {
-      bookings: {
-        where: {
-          status: BookingStatus.CONFIRMED,
-          startTime: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-        },
-        include: {
-          table: {
-            select: {
-              tableNumber: true,
-              capacity: true,
-              location: true,
+  const customer = await withDbRetry(() =>
+    prisma.customer.findUnique({
+      where: { phone: cleanPhone },
+      include: {
+        bookings: {
+          where: {
+            status: BookingStatus.CONFIRMED,
+            startTime: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+          },
+          include: {
+            table: {
+              select: {
+                tableNumber: true,
+                capacity: true,
+                location: true,
+              },
             },
           },
+          orderBy: { startTime: 'asc' },
         },
-        orderBy: { startTime: 'asc' },
       },
-    },
-  });
+    }),
+  );
 
   return customer;
 }

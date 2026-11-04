@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { BookingStatus } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -23,21 +26,40 @@ export async function GET(req: NextRequest) {
       where.startTime = { gte: start, lte: end };
     }
 
-    const [bookings, total] = await Promise.all([
-      prisma.booking.findMany({
-        where,
-        include: {
-          customer: { select: { name: true, phone: true, language: true } },
-          table: { select: { tableNumber: true, capacity: true, location: true } },
-        },
-        orderBy: { startTime: 'asc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.booking.count({ where }),
-    ]);
+    let bookings: any[] = [];
+    let total = 0;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        [bookings, total] = await Promise.all([
+          prisma.booking.findMany({
+            where,
+            include: {
+              customer: { select: { name: true, phone: true, language: true } },
+              table: { select: { tableNumber: true, capacity: true, location: true } },
+            },
+            orderBy: [{ createdAt: 'desc' }],
+            skip: (page - 1) * limit,
+            take: limit,
+          }),
+          prisma.booking.count({ where }),
+        ]);
+        break;
+      } catch (err) {
+        if (attempt === 2) throw err;
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    }
 
-    return NextResponse.json({ bookings, total, page, limit });
+    return NextResponse.json(
+      { bookings, total, page, limit },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      },
+    );
   } catch (error) {
     console.error('[GET /api/reservations]', error);
     return NextResponse.json({ error: 'Failed to fetch reservations' }, { status: 500 });
