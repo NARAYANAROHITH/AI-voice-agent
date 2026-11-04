@@ -14,6 +14,8 @@ function getJson(response: Response) {
 
 process.env.NEXT_PUBLIC_AGORA_APP_ID = '0123456789abcdef0123456789abcdef';
 process.env.NEXT_AGORA_APP_CERTIFICATE = 'fedcba9876543210fedcba9876543210';
+process.env.NEXT_LLM_API_KEY = 'mock-llm-key';
+process.env.NEXT_SARVAM_API_KEY = 'mock-sarvam-key';
 
 async function verifyGenerateAgoraTokenRoute() {
   const { GET: generateAgoraToken } =

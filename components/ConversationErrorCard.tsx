@@ -108,25 +108,24 @@ type ConversationErrorCardProps = {
 
 export function ConversationErrorCard({ issue }: ConversationErrorCardProps) {
   const normalizedMessage = getNormalizedMessage(issue);
-  const showNormalizedMessage = normalizedMessage !== issue.message;
+  const isTransformed = normalizedMessage !== issue.message;
   const cta = getCta(issue);
-  const transportCode = String(issue.code);
-  const showRaw = issue.message !== normalizedMessage;
+  const transportCode = issue.code ? `: ${issue.code}` : '';
 
   return (
     // Compact diagnostic card: headline for quick triage, optional CTA, raw payload for deeper debugging.
     <div className="rounded border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs">
       <div className="font-medium text-destructive">
-        Conversation AI Engine Error: {transportCode}
+        Conversation AI Engine Error{transportCode}
       </div>
-      {showNormalizedMessage && <div className="text-foreground">{normalizedMessage}</div>}
-      {cta && <div className="text-[11px] text-destructive/90">{cta}</div>}
-      {showRaw && (
-        <div className="mt-2 border-t border-destructive/20 pt-2 text-muted-foreground break-words">
+      <div className="text-foreground mt-0.5">{normalizedMessage || issue.message}</div>
+      {cta && <div className="text-[11px] text-destructive/90 mt-0.5">{cta}</div>}
+      {isTransformed && issue.message && (
+        <div className="mt-1 border-t border-destructive/20 pt-1 text-muted-foreground break-words text-[11px]">
           {issue.message}
         </div>
       )}
-      <div className="text-muted-foreground">
+      <div className="text-muted-foreground text-[10px] mt-1">
         agent {issue.agentUserId} at {new Date(issue.timestamp).toLocaleTimeString()}
       </div>
     </div>
