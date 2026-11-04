@@ -1,94 +1,76 @@
-> **When to Read This:** Load this document when you are changing the agent's prompt, voice, VAD behavior, model selection, or wiring a bring-your-own-key (BYOK) provider.
+> **When to Read This:** Load this document when you are changing the agent's prompt, voice, VAD behavior, model selection, the restaurant tool wiring, or the dashboard auth.
 
 # Invite Agent Config
 
 ## Where It Lives
 
-All of the managed agent configuration is built in `app/api/invite-agent/route.ts`. The route receives `{ requester_id, channel_name }` from `LandingPage`, constructs an `Agent` from `agora-agents`, and starts a session bound to the requester's RTC channel.
+All of the managed agent configuration is built in `app/api/invite-agent/route.ts`. The route receives `{ requester_id, channel_name }` from the browser, constructs an `Agent` from `agora-agents`, and starts a session bound to the requester's RTC channel.
+
+This is the **Spice Garden reservation agent** ("Priya"): it takes, modifies, and cancels table bookings by phone, speaking English, Hindi, and Telugu. The system prompt (`SYSTEM_PROMPT`) embeds the restaurant facts (address, hours) and forces language detection and one-question-at-a-time booking flow.
 
 ## Top-Level Constants
 
-| Constant            | Default                                                    | Purpose                                                    |
-| ------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
-| `PRIYA_PROMPT`      | Short, caveman-style instructions for "Priya", Spice Garden | The system prompt for the LLM. Shorter = lower TTFT.       |
-| `TEMPLATE_VARIABLES`| `hours` / `address` from `RESTAURANT_*` env vars           | Fills `{{hours}}` / `{{address}}` in the prompt.           |
-| `GREETING`          | Reservation-desk first line                                | Spoken on session start.                                   |
-| `availabilityTool()`| `check_availability` REST tool, or `null`                  | Built only when `NEXT_RESERVATIONS_API_URL` is set.        |
+| Constant          | Default                                     | Purpose                                                     |
+| ----------------- | ------------------------------------------- | ----------------------------------------------------------- |
+| `SYSTEM_PROMPT`   | Multilingual receptionist instructions      | The system prompt. Includes business facts inline.          |
+| `GREETING`        | "Thank you for calling Spice Garden! …"     | Spoken on session start.                                    |
+| `getToolBaseUrl`  | `NEXT_PUBLIC_APP_URL`, else localhost      | Base URL baked into every tool webhook URL.                 |
+| `buildRestaurantTools` | 5 inline REST tools                    | `check_availability`, `create_booking`, `get_bookings_by_phone`, `cancel_booking`, `modify_booking`. |
+| `buildLlm`        | Gemini → Groq → OpenAI by key prefix        | Picks the provider from the API key prefix; override model with `NEXT_LLM_MODEL`. |
 
-Agent behavior is configured in code: edit `GREETING` or `PRIYA_PROMPT` directly.
-
-## Latency Design
-
-The pipeline is already streaming (Deepgram partials → gpt-4o-mini tokens → MiniMax), so per-turn latency is dominated by these knobs:
-
-| Knob                          | Value   | Why                                                        |
-| ----------------------------- | ------- | ---------------------------------------------------------- |
-| `end_of_speech.silence_duration_ms` | `320` | Dead air before the agent replies. Was `480`.        |
-| `start_of_speech.interrupt_duration_ms` | `120` | How fast a caller can barge in. Was `160`.            |
-| `max_tokens`                  | `160`   | Caps a reply at ~2 sentences; keeps streamed TTS short.    |
-| `maxHistory`                  | `12`    | Fewer input tokens → faster first token.                   |
-| Prompt length                 | ~8 lines | Business facts live in `TEMPLATE_VARIABLES`, not the prompt. |
-| `server.timeout_ms` on the tool | `1200` | A slow backend fails fast instead of stalling the turn.   |
-
-Do not "fix" latency by calling the LLM again in a separate route — one turn means one LLM call plus, at most, one tool call.
+Agent behavior is configured in code: edit `GREETING` or `SYSTEM_PROMPT` directly.
 
 ## The Agent Builder Chain
 
-`AgoraClient` is constructed first — it carries the region and credentials for all API calls. `area` belongs here, not on the session.
-
 ```ts
-const client = new AgoraClient({ area: Area.US, appId, appCertificate });
+const client = new AgoraClient({ area: Area.AP, appId, appCertificate }); // AP edge for India callers
 
 const agent = new Agent({
   client,
-  instructions: PRIYA_PROMPT,
+  instructions: SYSTEM_PROMPT,
   greeting: GREETING,
-  failureMessage: 'Sorry, I missed that. Could you say it again?',
-  maxHistory: 12,
+  failureMessage: 'Please wait a moment. Ek pal rukiye.',
+  maxHistory: 30,
   turnDetection: {
     config: {
-      speech_threshold: 0.5,
-      start_of_speech: { /* VAD on-start params */ },
-      end_of_speech:   { /* VAD on-end params */ },
+      speech_threshold: 0.45,
+      start_of_speech: { mode: 'vad', vad_config: { interrupt_duration_ms: 200, prefix_padding_ms: 300 } },
+      end_of_speech:   { mode: 'vad', vad_config: { silence_duration_ms: 600 } }, // longer for code-switching
     },
   },
   advancedFeatures: { enable_rtm: true, enable_tools: true },
   parameters: {
+    audio_scenario: 'chorus',
     data_channel: 'rtm',
     enable_error_message: true,
     enable_metrics: true,
   },
 })
-  .withStt(new DeepgramSTT({ model: 'nova-3', language: 'en' }))
-  .withLlm(new OpenAI({
-    model: 'gpt-4o-mini',
-    greetingMessage: GREETING,
-    failureMessage: 'Sorry, I missed that. Could you say it again?',
-    maxHistory: 12,
-    templateVariables: TEMPLATE_VARIABLES,
-    params: { max_tokens: 160, temperature: 0.4, top_p: 0.9 },
-    tools: tool ? [tool] : undefined,
-  }))
-  .withTts(new MiniMaxTTS({
-    model: 'speech_2_6_turbo',
-    voiceId: 'English_captivating_female1',
-  }));
+  .withStt(new SarvamSTT({ apiKey: sarvamApiKey, language: 'unknown', additionalParams: { language_hints: ['hi', 'te', 'en'] } }))
+  .withLlm(buildLlm(llmApiKey, buildRestaurantTools()))
+  .withTts(new SarvamTTS({ key: sarvamApiKey, speaker: 'priya', targetLanguageCode: 'en-IN', pace: 1.1 }));
 ```
 
-## Availability Tool
+## Provider Selection (`buildLlm`)
 
-`check_availability({ date, time, party_size })` is an inline REST tool (`LlmTool`) the Agora service executes synchronously during the turn. It issues a single `GET {NEXT_RESERVATIONS_API_URL}/availability?date=&time=&party_size=` with a 1200 ms timeout.
+| `NEXT_LLM_API_KEY` starts with | Provider | Default model | Notes |
+| ------------------------------ | -------- | ------------- | ----- |
+| `AQ.` or `AIzaSy`              | Google Gemini | `gemini-3.5-flash-lite` | Default pipeline; falls back from daily rate limit of `gemini-3.5-flash`. |
+| `gsk_`                         | Groq     | `llama-3.3-70b-versatile` | OpenAI-compatible URL; override with `NEXT_LLM_URL`. |
+| anything else                  | OpenAI   | `gpt-4o`      | OpenAI-compatible URL; override with `NEXT_LLM_URL`. |
 
-- Keep the endpoint read-only and served from an index/cache — no write-then-read dance.
-- `enable_tools: true` is required for the tool to be offered to the LLM.
-- Unset `NEXT_RESERVATIONS_API_URL` → no tool is registered, and the prompt tells the agent to take a callback instead of guessing availability.
+`NEXT_LLM_MODEL` overrides the model for whichever provider is detected.
+
+## Restaurant Tools
+
+Tools are inline REST calls (`LlmTool`) that Agora executes synchronously during the turn. **Agora cloud blocks `localhost` webhook URLs** — locally you must either set `NEXT_PUBLIC_APP_URL` to a public tunnel (`ngrok http 3000` / `npx localtunnel --port 3000`) or deploy (e.g. Vercel); otherwise `buildRestaurantTools()` returns `[]` and Priya cannot check availability or book.
+
+Tool webhooks live under `app/api/tools/*` and read/write the Postgres database via Prisma (`lib/db.ts`, schema in `prisma/schema.prisma`). `NEXT_RESTAURANT_ID` scopes queries to seeded restaurants; run `pnpm run db:migrate` and `pnpm run seed` once against your database.
 
 ## Session Options
 
-`createSession` takes the `AgoraClient` as its first argument, then the session options object. `session.start()` is called separately and returns the `agentId`.
-
 ```ts
-const session = agent.createSession(client, {
+const session = agent.createSession({
   channel: channel_name,
   agentUid,
   remoteUids: [requester_id],
@@ -108,31 +90,9 @@ const agentId = await session.start();
 | `expiresIn`   | Hard ceiling on session length, mirrors the 1-hour RTC token.                        |
 | `debug`       | Logs Agora REST API calls to the console when `true`.                                |
 
-## Editing Each Surface
+## Staff Dashboard
 
-### Change the prompt
-
-Edit `PRIYA_PROMPT` and keep it short — every extra token is latency before the first spoken word. Put business facts in `TEMPLATE_VARIABLES` (or the `RESTAURANT_*` env vars) and reference them as `{{hours}}` / `{{address}}` instead of writing them into the prompt.
-
-### Change the greeting
-
-Edit `GREETING` in `app/api/invite-agent/route.ts`.
-
-### Change VAD behavior
-
-Edit `turnDetection.config.start_of_speech` and `turnDetection.config.end_of_speech`. Both blocks accept the new VAD param shape — do **not** revert to the deprecated `turnDetection.type: 'agora_vad'`. Lower `silence_duration_ms` for faster replies; raise it if callers get cut off mid-sentence.
-
-### Swap the STT model
-
-Replace the `DeepgramSTT` constructor. To use Deepgram with a BYOK key, set `NEXT_DEEPGRAM_API_KEY` and pass `apiKey: process.env.NEXT_DEEPGRAM_API_KEY` to the constructor.
-
-### Swap the LLM
-
-Replace `OpenAI` with another LLM class from `agora-agents`. For a custom URL, point the constructor at `process.env.NEXT_LLM_URL` and pass `apiKey: process.env.NEXT_LLM_API_KEY`. Wiring through `app/api/chat/completions/route.ts` is documented in `docs/ai/L1/05_workflows.md`.
-
-### Swap the TTS
-
-Replace `MiniMaxTTS`. ElevenLabs is the common BYOK choice — use `NEXT_ELEVENLABS_API_KEY` and `NEXT_ELEVENLABS_VOICE_ID`. The commented BYOK example in the route shows the constructor shape.
+`/dashboard` serves the staff UI (live bookings, tables, calls) backed by the same Prisma schema. Access is gated by `middleware.ts` + `auth.ts` (NextAuth v5 credentials provider, JWT session). Required env: `NEXTAUTH_SECRET`, `NEXT_DASHBOARD_USER`, `NEXT_DASHBOARD_PASS`. **Never ship the hard-coded dev fallbacks** (`admin`/`spicegarden123` and the fallback `NEXTAUTH_SECRET`) to production — set all three env vars.
 
 ## Response Contract
 
@@ -146,7 +106,7 @@ On success the route returns `AgentResponse`:
 }
 ```
 
-`agent_id` is what `LandingPage` later passes to `/api/stop-conversation`.
+`agent_id` is what the client later passes to `/api/stop-conversation`.
 
 ## Verification
 
@@ -155,7 +115,7 @@ On success the route returns `AgentResponse`:
 - Missing `channel_name` or `requester_id` → `400`.
 - Mocked success → `200` with `agent_id`, `create_ts`, `state`.
 
-After editing this file, run:
+The harness sets `NEXT_LLM_API_KEY` and `NEXT_SARVAM_API_KEY` to mocks. After editing this file, run:
 
 ```bash
 pnpm run verify:api
@@ -166,11 +126,13 @@ pnpm run typecheck
 
 | Symptom                                                | Cause                                                          |
 | ------------------------------------------------------ | -------------------------------------------------------------- |
+| `500 … NEXT_SARVAM_API_KEY …`                         | Sarvam key missing in env.                                     |
+| `500 … NEXT_LLM_API_KEY or GEMINI_API_KEY`             | LLM key missing; one of the two must be set.                   |
+| Agent joins but tools never fire                       | `NEXT_PUBLIC_APP_URL` unset/localhost — tools disabled (see console warning). |
+| Tools fire but return 500                              | `DATABASE_URL` unset or DB not migrated/seeded.                |
 | `400 channel_name and requester_id are required`       | Browser sent an empty body or wrong field names.               |
-| `500 Agora credentials are not set`                    | `NEXT_AGORA_APP_CERTIFICATE` missing in env.                   |
-| Agent joins but never speaks                           | TTS misconfigured (wrong `voiceId` or missing BYOK key).       |
+| Agent joins but never speaks                           | TTS misconfigured (wrong Sarvam key or speaker).               |
 | Agent state stuck on `IDLE`                            | `enable_rtm: true` missing or RTM client not subscribed yet.   |
-| `verify:api` fails on the route                        | New required field added without updating the harness.         |
 
 ## See Also
 

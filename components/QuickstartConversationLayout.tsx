@@ -21,23 +21,6 @@ export function QuickstartConversationLayout({
   onEndConversation,
 }: QuickstartConversationLayoutProps) {
   return (
-<<<<<<< HEAD
-    <div className="flex min-h-0 flex-1 flex-col text-left">
-      <header className="flex shrink-0 flex-col gap-4 border-b border-border px-4 py-4 md:h-[76px] md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
-        <div className="flex min-w-0 items-center gap-3">
-          <Image
-            src="/agora-logo-mark.svg"
-            alt="Agora"
-            width={40}
-            height={40}
-            className="h-10 w-10 shrink-0 object-contain"
-          />
-          <div className="flex min-w-0 flex-col justify-center gap-1">
-            <span className="truncate text-lg font-semibold leading-none tracking-[-0.025em] text-foreground">
-              Spice Garden — Reservations
-            </span>
-            {pipelineMetrics}
-=======
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-[#0d0907] via-[#080706] to-[#040404] text-white">
       {/* Subtle luxury ambient glows */}
       <div className="pointer-events-none absolute -top-40 left-1/4 h-96 w-96 rounded-full bg-orange-600/10 blur-[120px]" />
@@ -60,7 +43,6 @@ export function QuickstartConversationLayout({
               </span>
             </div>
             <div className="mt-0.5">{pipelineMetrics}</div>
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
           </div>
         </div>
 

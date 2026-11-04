@@ -10,11 +10,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'Spice Garden — AI Reservation Assistant',
   description:
-<<<<<<< HEAD
-    'Call the Spice Garden reservation desk: a real-time voice agent that checks table availability and books reservations, built on Agora\'s Conversational AI Engine.',
-=======
     'Book a table at Spice Garden with Priya, our AI receptionist. Speak in English, Hindi, or Telugu to check availability and make instant reservations.',
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
   icons: {
     icon: [
       { url: '/favicon.ico' },

@@ -14,25 +14,7 @@ export function QuickstartPreCallCard({
   onStartConversation,
   onStart,
 }: QuickstartPreCallCardProps) {
-<<<<<<< HEAD
-  return (
-    <div
-      className="mx-auto flex w-[min(92vw,26.25rem)] animate-fade-up flex-col items-center rounded-[20px] border border-[#2b2b2b] px-10 py-10 text-center shadow-[0_10px_24px_rgba(0,0,0,0.28)]"
-      style={{
-        backgroundImage:
-          'linear-gradient(164.988deg, rgba(54,54,54,0.2) 1.0596%, rgba(0,0,0,0) 96.089%), linear-gradient(90deg, rgb(16,16,16) 0%, rgb(16,16,16) 100%)',
-      }}
-    >
-      <h1 className="text-[28px] font-medium leading-[1.2] text-white">
-        Spice Garden Reservations
-      </h1>
-      <p className="mt-[14px] text-sm font-medium leading-6 text-muted-foreground">
-        Call the reservation desk. Priya can check availability and book
-        your table in under a minute.
-      </p>
-=======
   const handleStart = onStartConversation ?? onStart;
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
 
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-[#0c0907] via-[#080706] to-[#040404] p-4 sm:p-6 lg:p-8">
