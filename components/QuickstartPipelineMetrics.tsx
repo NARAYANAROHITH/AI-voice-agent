@@ -42,15 +42,15 @@ export function QuickstartPipelineMetrics({
         return (
           <div key={step.key} className="flex items-center gap-2">
             {index > 0 && (
-              <span className="text-xs text-muted-foreground" aria-hidden="true">
+              <span className="text-xs text-[#6B7280]" aria-hidden="true">
                 /
               </span>
             )}
-            <span className="rounded-md border border-border bg-transparent px-2 py-0.5 text-xs font-semibold leading-4 text-foreground shadow-sm">
+            <span className="rounded-md border border-[#E5E7EB] bg-white px-2 py-0.5 text-[11px] font-semibold leading-4 text-[#202124]">
               {step.label}
               {metric && (
                 <span
-                  className="ml-2 text-primary"
+                  className="ml-2 font-mono text-[#B45309]"
                   title={new Date(metric.timestamp).toLocaleTimeString()}
                 >
                   {formatMetricName(metric.name)} {Math.round(metric.value)}ms

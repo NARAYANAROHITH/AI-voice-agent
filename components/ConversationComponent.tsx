@@ -503,7 +503,7 @@ export default function ConversationComponent({
       }
       controls={
         <div
-          className="mx-auto flex w-fit items-center gap-3 rounded-full border border-border bg-card/80 px-4 py-2 backdrop-blur-md"
+          className="mx-auto flex w-fit items-center gap-3"
           role="group"
           aria-label="Audio controls"
         >
