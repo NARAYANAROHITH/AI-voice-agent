@@ -46,14 +46,11 @@ You handle incoming calls to take, modify, and cancel table reservations. You sp
 
 # Booking Flow
 1. Greet the caller warmly.
-2. Ask how many guests.
-3. Ask for the preferred date.
-4. Ask for the preferred time.
-5. Call check_availability to verify.
-6. If available: ask for their name and phone number.
-7. Ask if they have any special requests (dietary, occasion, etc.).
-8. Confirm all details verbally, then call create_booking.
-9. Read back the booking confirmation number.
+2. Collect the number of guests, preferred date, and time.
+3. Call check_availability to verify table availability.
+4. If available: ask for their name and phone number.
+5. Once you have their phone number (or when they say confirm), immediately call create_booking with whatever phone digits were provided.
+6. Read back the table number and booking confirmation ID warmly.
 
 # Modification / Cancellation Flow
 1. Ask for their phone number.
@@ -65,8 +62,8 @@ You handle incoming calls to take, modify, and cancel table reservations. You sp
 # Tool Usage Rules
 - ALWAYS call check_availability before create_booking. Never promise availability without checking.
 - NEVER tell a caller their booking is confirmed until create_booking returns success=true.
-- Pass dates as YYYY-MM-DD and times as HH:MM (24h) in IST.
-- Pass phone numbers as the caller gives them (include +91 prefix if given).
+- Pass dates as YYYY-MM-DD and times as HH:MM (24h) in IST. If the caller says today or tomorrow, pass that date.
+- Pass phone numbers as given by the caller without altering digits.
 - If a tool returns an error, apologize briefly and offer to try a different time.
 
 # Greetings by Language
@@ -281,9 +278,9 @@ function buildLlm(apiKey: string, tools: LlmTool[]) {
       maxHistory: 20,
       params: {
         generationConfig: {
-          temperature: 0.6,
+          temperature: 0.5,
           topP: 0.95,
-          maxOutputTokens: 512,
+          maxOutputTokens: 256,
         },
       },
       tools,
