@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
+import { AudioLines, MessageSquareText, Lightbulb } from 'lucide-react';
 
 type TranscriptMessage = {
   turn_id?: string | number;
@@ -45,54 +46,61 @@ export function QuickstartTranscriptPanel({
 
   return (
     <section
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#141416]/90 to-[#0c0c0e]/95 backdrop-blur-xl shadow-2xl shadow-black/60"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-[#E5E7EB] bg-white"
       aria-label="Live Voice Transcript"
     >
-      {/* Panel Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-5 bg-white/[0.02]">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/30 border border-amber-500/30 text-amber-400">
-            🎙️
+      {/* Panel header */}
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#E5E7EB] px-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F8F9FA]">
+            <AudioLines className="h-4 w-4 text-[#B45309]" strokeWidth={1.75} aria-hidden="true" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-white tracking-tight">Live Transcript</h2>
-              <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live Audio
+              <h2 className="text-sm font-semibold tracking-tight text-[#202124]">
+                Live Transcript
+              </h2>
+              <span className="flex items-center gap-1.5 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2 py-0.5 text-[10px] font-medium text-[#16A34A]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" />
+                Live
               </span>
             </div>
-            <p className="text-[11px] text-zinc-400">Priya · Sarvam Voice AI</p>
+            <p className="mt-0.5 text-[11px] text-[#6B7280]">Priya · Sarvam Voice AI</p>
           </div>
         </div>
-
-        <div className="text-right">
-          <span className="text-[11px] font-mono text-zinc-400 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
-            {messages.length} turn{messages.length !== 1 ? 's' : ''}
-          </span>
-        </div>
+        <span className="rounded-md border border-[#E5E7EB] bg-[#F8F9FA] px-2 py-1 font-mono text-[11px] text-[#6B7280]">
+          {messages.length} turn{messages.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      {/* Messages Stream */}
+      {/* Messages */}
       <div
         ref={scrollRef}
-        className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-zinc-800"
+        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-[#F8F9FA] p-4"
       >
         {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center p-6 space-y-4">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 flex items-center justify-center text-2xl shadow-inner shadow-orange-500/10">
-              💬
+          <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white">
+              <MessageSquareText className="h-6 w-6 text-[#B45309]" strokeWidth={1.5} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-sm font-medium text-zinc-200">Waiting for conversation to begin…</p>
-              <p className="text-xs text-zinc-400 mt-1 max-w-xs leading-relaxed">
-                Priya will greet you shortly. Speak naturally in English, Hindi, or Telugu to book or modify a table.
+              <p className="text-sm font-semibold text-[#202124]">
+                Waiting for the conversation to begin
+              </p>
+              <p className="mt-1 max-w-xs text-xs leading-relaxed text-[#6B7280]">
+                Priya will greet you shortly. Speak in English, Hindi, or Telugu to book or modify a table.
               </p>
             </div>
-            <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3 text-left w-full max-w-xs space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400/80">Try saying:</p>
-              <p className="text-xs text-zinc-300 italic">&ldquo;Table for 4 tonight at 8 PM&rdquo;</p>
-              <p className="text-xs text-zinc-300 italic">&ldquo;Aaj raat do logon ke liye table book kardo&rdquo;</p>
+            <div className="w-full max-w-xs rounded-md border border-[#E5E7EB] bg-white p-3 text-left">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
+                Try saying
+              </p>
+              <p className="text-xs leading-snug text-[#202124]">
+                &ldquo;Table for 4 tonight at 8 PM&rdquo;
+              </p>
+              <p className="mt-1 text-xs leading-snug text-[#202124]">
+                &ldquo;Aaj raat do logon ke liye table book kar do&rdquo;
+              </p>
             </div>
           </div>
         ) : (
@@ -105,40 +113,38 @@ export function QuickstartTranscriptPanel({
             return (
               <article
                 key={`${message.turn_id ?? message.uid}-${index}`}
-                className={`flex flex-col ${isAgent ? 'items-start' : 'items-end'} transition-all`}
+                className={`flex flex-col ${isAgent ? 'items-start' : 'items-end'}`}
               >
-                {/* Meta Header */}
-                <div className={`mb-1.5 flex items-center gap-1.5 px-1 text-[11px] ${isAgent ? 'text-amber-400' : 'text-sky-400'}`}>
-                  {isAgent ? (
-                    <>
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/20 text-[10px]">
-                        🌶️
-                      </span>
-                      <span className="font-semibold text-zinc-200">Priya</span>
-                      <span className="text-[10px] text-amber-400/80 font-normal">AI Host</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-semibold text-zinc-200">You</span>
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">
-                        👤
-                      </span>
-                    </>
+                {/* Meta header */}
+                <div
+                  className={`mb-1 flex items-baseline gap-1.5 px-0.5 text-[11px] ${
+                    isAgent ? 'text-[#B45309]' : 'text-[#6B7280]'
+                  }`}
+                >
+                  <span className="font-semibold text-[#202124]">
+                    {isAgent ? 'Priya' : 'You'}
+                  </span>
+                  {isAgent && (
+                    <span className="font-medium text-[#B45309]">· AI Host</span>
                   )}
-                  {time && <span className="text-[10px] text-zinc-400 ml-1">· {time}</span>}
+                  {time && <span className="text-[10px] text-[#6B7280]">{time}</span>}
                 </div>
 
-                {/* Bubble Body */}
+                {/* Bubble */}
                 <div
-                  className={`max-w-[92%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-lg ${
+                  className={`max-w-[92%] whitespace-pre-wrap rounded-lg border px-3.5 py-2.5 text-sm leading-relaxed ${
                     isAgent
-                      ? 'border border-amber-500/20 bg-gradient-to-br from-[#1c140e] via-[#161210] to-[#111] text-zinc-100 shadow-orange-950/20'
-                      : 'border border-sky-500/20 bg-gradient-to-br from-[#111a26] via-[#0d1520] to-[#0a1017] text-white shadow-sky-950/20'
-                  } ${isLatest && currentInProgressMessage ? 'ring-1 ring-amber-400/40' : ''}`}
+                      ? 'border-[#E5E7EB] bg-white text-[#202124]'
+                      : 'border-[#B45309] bg-[#B45309] text-white'
+                  } ${
+                    isLatest && currentInProgressMessage
+                      ? 'border-l-2 border-l-[#B45309]'
+                      : ''
+                  }`}
                 >
                   {text || (
-                    <span className="inline-flex items-center gap-1 text-zinc-400 italic">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+                    <span className="inline-flex items-center gap-1.5 text-xs italic text-[#6B7280]">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#B45309]" />
                       Listening…
                     </span>
                   )}
@@ -149,10 +155,11 @@ export function QuickstartTranscriptPanel({
         )}
       </div>
 
-      {/* Quick Suggestions Footer */}
-      <div className="border-t border-white/5 bg-black/40 px-4 py-2.5 text-center">
-        <p className="text-[11px] text-zinc-400 flex items-center justify-center gap-2">
-          <span>💡</span> State your name and phone number clearly to guarantee instant table confirmation.
+      {/* Footer hint */}
+      <div className="shrink-0 border-t border-[#E5E7EB] bg-white px-4 py-2.5">
+        <p className="flex items-center justify-center gap-1.5 text-[11px] text-[#6B7280]">
+          <Lightbulb className="h-3.5 w-3.5 text-[#B45309]" strokeWidth={1.75} aria-hidden="true" />
+          State your name and phone number clearly for faster confirmation.
         </p>
       </div>
     </section>

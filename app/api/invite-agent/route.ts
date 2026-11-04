@@ -14,75 +14,6 @@ import type { LlmTool } from 'agora-agents';
 import { ClientStartRequest, AgentResponse } from '@/types/conversation';
 import { DEFAULT_AGENT_UID } from '@/lib/agora';
 
-<<<<<<< HEAD
-// System prompt that defines the agent's personality and behavior.
-// Swap this out to change what the agent talks about.
-//
-// Kept deliberately short: every extra token is latency before the first
-// spoken word. Business facts (hours, menu) live in TEMPLATE_VARIABLES below
-// and are injected with {{placeholders}} instead of being spelled out here.
-const PRIYA_PROMPT = `You are Priya, the reservation assistant for Spice Garden, an Indian restaurant.
-
-- Answer in 1-2 short spoken sentences. No lists, no markdown.
-- Restaurant hours: {{hours}}. Location: {{address}}.
-- For a booking, call check_availability first with date, time and party size.
-  Never say a slot is free without calling it. If it returns no_table, offer the
-  next closest time from alternatives. If a guest changes date, time or party
-  size, call check_availability again.
-- Confirm the whole booking back once, then say a teammate will text a confirmation.
-- If the tool errors or is unavailable, say checking is unavailable right now and
-  offer to take their name and number for a callback.
-- If asked anything unrelated to the restaurant or bookings, say you can only help
-  with reservations. Never invent dishes, prices or policies.
-- If the caller is hard to hear, ask them to repeat once, then take the details slowly.`;
-
-// Business facts injected into the prompt via template variables, so editing
-// them never lengthens the prompt the model has to read at startup.
-const TEMPLATE_VARIABLES: Record<string, string> = {
-  hours: process.env.RESTAURANT_HOURS ?? '11:30 AM to 10 PM, Tuesday to Sunday',
-  address: process.env.RESTAURANT_ADDRESS ?? 'the downtown Spice Garden location',
-};
-
-// First thing the agent says when a user joins the channel.
-const GREETING = `Hi! Spice Garden reservations, this is Priya. How can I help?`;
-
-// Inline REST tool for availability lookups. The agent calls it synchronously
-// on every check, so the endpoint must answer from a fast index/cache — never
-// a fan-out of database queries. Point it at a real backend with
-// NEXT_RESERVATIONS_API_URL; {{args.*}} are filled in by the Agora service.
-function availabilityTool(): LlmTool | null {
-  const baseUrl = process.env.NEXT_RESERVATIONS_API_URL;
-  if (!baseUrl) return null;
-
-  return {
-    type: 'function',
-    function: {
-      name: 'check_availability',
-      description:
-        'Check whether a table is free. Call before promising any reservation.',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: { type: 'string', description: 'ISO date, e.g. 2026-11-08' },
-          time: { type: 'string', description: '24h local time, e.g. 19:30' },
-          party_size: { type: 'integer', description: 'Number of guests' },
-        },
-        required: ['date', 'time', 'party_size'],
-      },
-    },
-    // GET keeps the lookup cacheable and side-effect free: one round trip,
-    // no write, no follow-up read.
-    server: {
-      method: 'GET',
-      url: `${baseUrl.replace(/\/$/, '')}/availability?date={{args.date}}&time={{args.time}}&party_size={{args.party_size}}`,
-      // Fail fast instead of stalling the turn behind a slow backend; the
-      // prompt handles the "checking is unavailable" fallback.
-      timeout_ms: 1200,
-    },
-    execution: { mode: 'sync' },
-  };
-}
-=======
 // ─── System Prompt ────────────────────────────────────────────────────────────
 // Spice Garden restaurant booking agent. Speaks English, Hindi, and Telugu.
 // Automatically detects and matches the caller's language.
@@ -120,7 +51,6 @@ You handle incoming calls to take, modify, and cancel table reservations. You sp
 4. If available: ask for their name and phone number.
 5. Once you have their phone number (or when they say confirm), immediately call create_booking with whatever phone digits were provided.
 6. Read back the table number and booking confirmation ID warmly.
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
 
 # Modification / Cancellation Flow
 1. Ask for their phone number.
@@ -417,32 +347,6 @@ export async function POST(request: NextRequest) {
     //    lower latency for India callers and TRAI-friendly media routing.
     const client = new AgoraClient({ area: Area.AP, appId, appCertificate });
 
-<<<<<<< HEAD
-    // Availability lookup is only advertised to the LLM when a backend is
-    // configured, so an unset env var degrades to a prompt-only agent instead
-    // of a tool that always errors mid-turn.
-    const tool = availabilityTool();
-
-    // AgoraClient authenticates API calls to the Agora Conversational AI service.
-    // area: change to Area.EU or Area.AP for European or Asia-Pacific deployments.
-    const client = new AgoraClient({
-      area: Area.US,
-      appId,
-      appCertificate,
-    });
-
-    // Pipeline: Deepgram (reseller) STT → OpenAI (reseller) LLM → MiniMax (reseller) TTS.
-    // Omit vendor API keys for supported models — AgentKit infers reseller presets on start (see Agora Console / billing).
-    const agent = new Agent({
-      client,
-      instructions: PRIYA_PROMPT,
-      greeting: GREETING,
-      failureMessage: 'Sorry, I missed that. Could you say it again?',
-      maxHistory: 12,
-      // VAD controls how the agent detects the start and end of a user's turn.
-      // Tuned for snappy handoff: the agent starts listening after 320 ms of
-      // silence (down from 480 ms) and barges in after 120 ms of speech.
-=======
     const agent = new Agent({
       client,
       instructions: SYSTEM_PROMPT,
@@ -450,43 +354,26 @@ export async function POST(request: NextRequest) {
       failureMessage: 'Please wait a moment. Ek pal rukiye.',
       maxHistory: 30,
       // VAD tuned for phone-quality audio with code-switching pauses
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
       turnDetection: {
         config: {
           speech_threshold: 0.45,
           start_of_speech: {
             mode: 'vad',
             vad_config: {
-<<<<<<< HEAD
-              interrupt_duration_ms: 120, // ms of speech before interruption triggers
-              prefix_padding_ms: 250, // audio captured before speech is detected
-=======
               interrupt_duration_ms: 200,
               prefix_padding_ms: 300,
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
             },
           },
           end_of_speech: {
             mode: 'vad',
             vad_config: {
-<<<<<<< HEAD
-              silence_duration_ms: 320, // ms of silence before turn ends
-=======
               silence_duration_ms: 600, // slightly longer for language-switching pauses
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
             },
           },
         },
       },
-<<<<<<< HEAD
-      // RTM is required for transcript events in the browser client.
-      // enable_tools turns on the inline REST tool loop for check_availability.
-      // Leave it on even without a tool URL: the flag is what allows any tool
-      // to be added later without changing session startup.
-=======
       // RTM required for browser transcript events.
       // enable_tools required for HTTP tool invocation.
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
       advancedFeatures: { enable_rtm: true, enable_tools: true },
       parameters: {
         audio_scenario: 'chorus',
@@ -499,60 +386,13 @@ export async function POST(request: NextRequest) {
       // Native Indian language model. language='unknown' enables auto-detection
       // across hi, te, and en including code-switching (Hinglish / Tanglish).
       .withStt(
-<<<<<<< HEAD
-        new DeepgramSTT({
-          model: 'nova-3',
-          language: 'en',
-        }),
-        // BYOK: uncomment the following block and set NEXT_DEEPGRAM_API_KEY
-        // new DeepgramSTT({
-        //   apiKey: requireEnv('NEXT_DEEPGRAM_API_KEY'),
-        //   model: 'nova-3',
-        //   language: 'en',
-        // }),
-      )
-      .withLlm(
-        new OpenAI({
-          model: 'gpt-4o-mini',
-          greetingMessage: GREETING,
-          failureMessage: 'Sorry, I missed that. Could you say it again?',
-          // Short memory window: fewer tokens in, faster first token out. The
-          // booking state we need lives in the tool results, not the history.
-          maxHistory: 12,
-          templateVariables: TEMPLATE_VARIABLES,
-          // The pipeline streams LLM tokens into TTS as they arrive; keeping
-          // replies to two sentences is what makes that streaming audible.
-          params: {
-            max_tokens: 160,
-            temperature: 0.4,
-            top_p: 0.9,
-=======
         new SarvamSTT({
           apiKey: sarvamApiKey,
           language: 'unknown',
           additionalParams: {
             language_hints: ['hi', 'te', 'en'],
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
           },
-          tools: tool ? [tool] : undefined,
         }),
-<<<<<<< HEAD
-        // BYOK: uncomment the following block and set NEXT_LLM_API_KEY and NEXT_LLM_URL
-        // new OpenAI({
-        //   apiKey: requireEnv('NEXT_LLM_API_KEY'),
-        //   url: requireEnv('NEXT_LLM_URL'),
-        //   model: 'gpt-4o-mini',
-        //   greetingMessage: GREETING,
-        //   failureMessage: 'Sorry, I missed that. Could you say it again?',
-        //   maxHistory: 12,
-        //   params: {
-        //     max_tokens: 160,
-        //     temperature: 0.4,
-        //     top_p: 0.9,
-        //   },
-        // }),
-=======
->>>>>>> 8605dbb2588cdb6f891ca0070e8fdf9bbd4bc0ef
       )
       // ── LLM: Multi-Provider (Gemini / Groq / OpenAI) ─────────────────────
       .withLlm(buildLlm(llmApiKey, buildRestaurantTools()))

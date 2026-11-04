@@ -202,20 +202,22 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative flex h-dvh min-h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div
+      className={`relative flex flex-col bg-[#FFFFFF] text-foreground ${
+        showConversation ? 'h-dvh min-h-screen overflow-hidden' : 'min-h-screen'
+      }`}
+    >
       {/* Hero shell: either shows the pre-call CTA or swaps in the live conversation experience. */}
       <div
         className={`flex min-h-0 flex-1 flex-col ${
-          showConversation
-            ? 'items-stretch justify-start'
-            : 'items-center justify-center'
+          showConversation ? 'items-stretch justify-start' : 'items-stretch'
         }`}
       >
         <div
-          className={`z-10 flex min-h-0 flex-1 flex-col ${
+          className={`z-10 flex min-h-0 w-full flex-1 flex-col ${
             showConversation
-              ? 'h-full w-full max-w-none items-stretch gap-0 px-0 text-left'
-              : 'w-full max-w-none items-center justify-center px-4 text-center'
+              ? 'h-full max-w-none items-stretch gap-0 px-0 text-left'
+              : 'items-stretch'
           }`}
         >
           {!showConversation ? (

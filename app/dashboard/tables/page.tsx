@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
-import Link from 'next/link';
+import {
+  RefreshCw,
+  Users,
+  Loader2,
+  Armchair,
+} from 'lucide-react';
+import { DashboardSidebar } from '@/components/dashboard/Sidebar';
 
 interface TableBooking {
   id: string;
@@ -22,64 +26,8 @@ interface Table {
   bookings: TableBooking[];
 }
 
-function Sidebar({ pathname }: { pathname: string }) {
-  const nav = [
-    { href: '/dashboard', label: 'Reservations', icon: '📋' },
-    { href: '/dashboard/tables', label: 'Floor & Tables', icon: '🪑' },
-    { href: '/dashboard/calls', label: 'Voice Calls', icon: '📞' },
-  ];
-
-  return (
-    <aside className="w-64 shrink-0 bg-[#0d0a08] border-r border-white/10 flex flex-col justify-between">
-      <div>
-        <div className="px-6 py-6 border-b border-white/10">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-600 to-red-600 flex items-center justify-center shadow-lg shadow-orange-600/30 ring-1 ring-white/20 transition-transform group-hover:scale-105">
-              <span className="text-xl">🌶️</span>
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm tracking-tight">Spice Garden</p>
-              <p className="text-amber-500/80 text-[11px] font-medium uppercase tracking-wider">Staff Management</p>
-            </div>
-          </Link>
-        </div>
-
-        <nav className="p-3 space-y-1.5">
-          {nav.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  active
-                    ? 'bg-gradient-to-r from-orange-600/20 to-amber-600/10 text-amber-400 border border-amber-500/30 shadow-sm'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <span className="text-base">{item.icon}</span>
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className="p-4 border-t border-white/10 bg-black/30">
-        <button
-          onClick={() => signOut({ callbackUrl: '/dashboard/login' })}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/20"
-        >
-          <span>🚪</span> Sign Out
-        </button>
-      </div>
-    </aside>
-  );
-}
-
-function TableCard({ table }: { table: Table; date: string }) {
+function TableCard({ table }: { table: Table }) {
   const isBooked = table.bookings.length > 0;
-  const occupancy = table.bookings.length;
 
   function fmtTime(iso: string) {
     return new Date(iso).toLocaleTimeString('en-IN', {
@@ -91,56 +39,58 @@ function TableCard({ table }: { table: Table; date: string }) {
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border transition-all p-5 ${
+      className={`flex flex-col rounded-lg border p-5 transition-colors ${
         isBooked
-          ? 'border-amber-500/30 bg-gradient-to-b from-[#18120e] to-[#0d0a08] shadow-lg shadow-orange-950/20'
-          : 'border-white/10 bg-gradient-to-b from-[#121214] to-[#0a0a0c]'
+          ? 'border-amber-200 bg-amber-50/40'
+          : 'border-[#E5E7EB] bg-white'
       }`}
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <p className="text-xl font-bold text-white tracking-tight">Table {table.tableNumber}</p>
-            <span className="rounded-md bg-white/5 px-2 py-0.5 text-[10px] font-medium text-zinc-400 capitalize">
-              {table.location ?? 'Indoor Dining'}
+            <p className="text-lg font-semibold tracking-tight text-[#202124]">
+              Table {table.tableNumber}
+            </p>
+            <span className="rounded-md border border-[#E5E7EB] bg-[#F8F9FA] px-2 py-0.5 text-[10px] font-medium capitalize text-[#6B7280]">
+              {table.location ?? 'Indoor'}
             </span>
           </div>
-          <p className="text-zinc-400 text-xs mt-1 flex items-center gap-1.5">
-            <span>👥 Capacity:</span>
-            <span className="font-semibold text-zinc-200">{table.capacity} guests</span>
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[#6B7280]">
+            <Users className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            Capacity: <span className="font-medium text-[#202124]">{table.capacity} guests</span>
           </p>
         </div>
 
-        <div
-          className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+        <span
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
             isBooked
-              ? 'bg-amber-500/15 text-amber-400 border-amber-500/30 ring-1 ring-amber-500/20'
-              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
           }`}
         >
-          {isBooked ? `${occupancy} Booked` : '🟢 Available'}
-        </div>
+          {isBooked ? `${table.bookings.length} Booked` : 'Available'}
+        </span>
       </div>
 
       {table.bookings.length > 0 && (
-        <div className="mt-4 space-y-2 border-t border-white/10 pt-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-            Current Reservations:
+        <div className="mt-4 space-y-2 border-t border-[#E5E7EB] pt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280]">
+            Current reservations
           </p>
           {table.bookings.map((b) => (
             <div
               key={b.id}
-              className="rounded-xl border border-white/5 bg-black/40 p-2.5 text-xs space-y-1"
+              className="rounded-md border border-[#E5E7EB] bg-white p-2.5 text-xs"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-zinc-200">{b.customer.name}</span>
-                <span className="font-mono text-[11px] text-amber-400 font-medium">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-[#202124]">{b.customer.name}</span>
+                <span className="font-mono text-[10px] text-[#6B7280]">
                   {fmtTime(b.startTime)}–{fmtTime(b.endTime)}
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 flex items-center justify-between">
+              <p className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[#6B7280]">
                 <span>{b.partySize} guests</span>
-                <span className="font-mono text-zinc-500">{b.customer.phone}</span>
+                <span className="font-mono">{b.customer.phone}</span>
               </p>
             </div>
           ))}
@@ -151,12 +101,13 @@ function TableCard({ table }: { table: Table; date: string }) {
 }
 
 export default function TablesPage() {
-  const pathname = usePathname();
   const [tables, setTables] = useState<Table[]>([]);
   const todayDate = new Date();
   const tomorrowDate = new Date(Date.now() + 86400000);
   const todayStr = todayDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  const tomorrowStr = tomorrowDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const tomorrowStr = tomorrowDate.toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Kolkata',
+  });
   const tomorrowLabel = tomorrowDate.toLocaleDateString('en-IN', {
     month: 'short',
     day: 'numeric',
@@ -167,7 +118,9 @@ export default function TablesPage() {
 
   const fetchTables = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tables?date=${date}&_t=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch(`/api/tables?date=${date}&_t=${Date.now()}`, {
+        cache: 'no-store',
+      });
       const data = await res.json();
       setTables(data.tables ?? []);
     } catch {
@@ -187,79 +140,106 @@ export default function TablesPage() {
   const occupied = tables.filter((t) => t.bookings.length > 0).length;
 
   return (
-    <div className="flex h-screen bg-[#070605] text-white overflow-hidden">
-      <Sidebar pathname={pathname ?? ''} />
-      <main className="flex-1 overflow-y-auto flex flex-col">
-        <header className="sticky top-0 z-20 bg-[#0d0a08]/90 backdrop-blur-xl border-b border-white/10 px-8 py-4 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-white font-bold text-xl tracking-tight">Floor &amp; Table Map</h1>
-              <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live Sync
-              </span>
-            </div>
-            <p className="text-zinc-400 text-xs mt-0.5">
-              {available} open tables · {occupied} reserved for {date}
-            </p>
-          </div>
+    <div className="flex h-screen flex-col overflow-hidden bg-[#F8F9FA] text-[#202124] lg:flex-row">
+      <DashboardSidebar />
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="inline-flex rounded-xl bg-black/40 border border-white/10 p-1">
-              <button
-                onClick={() => setDate(todayStr)}
-                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
-                  date === todayStr
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => setDate(tomorrowStr)}
-                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
-                  date === tomorrowStr
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Tomorrow ({tomorrowLabel})
-              </button>
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {/* Header */}
+        <header className="sticky top-14 z-20 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:top-0 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-lg font-semibold tracking-tight text-[#202124] sm:text-xl">
+                  Floor &amp; Table Map
+                </h1>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" aria-hidden="true" />
+                  Live Sync
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-[#6B7280]">
+                {available} open tables · {occupied} reserved for {date}
+              </p>
             </div>
 
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <div
+                className="inline-flex rounded-md border border-[#E5E7EB] bg-white p-0.5"
+                role="group"
+                aria-label="Date"
+              >
+                <button
+                  onClick={() => setDate(todayStr)}
+                  aria-pressed={date === todayStr}
+                  className={`rounded-[6px] px-3 py-1.5 text-xs font-medium transition-colors ${
+                    date === todayStr
+                      ? 'bg-[#B45309] text-white'
+                      : 'text-[#6B7280] hover:bg-[#F8F9FA] hover:text-[#202124]'
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => setDate(tomorrowStr)}
+                  aria-pressed={date === tomorrowStr}
+                  className={`rounded-[6px] px-3 py-1.5 text-xs font-medium transition-colors ${
+                    date === tomorrowStr
+                      ? 'bg-[#B45309] text-white'
+                      : 'text-[#6B7280] hover:bg-[#F8F9FA] hover:text-[#202124]'
+                  }`}
+                >
+                  Tomorrow ({tomorrowLabel})
+                </button>
+              </div>
 
-            <button
-              onClick={() => {
-                setLoading(true);
-                fetchTables();
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-white/10 hover:text-white transition-all"
-            >
-              <span>↻</span>
-              <span>Refresh</span>
-            </button>
+              <label className="sr-only" htmlFor="floor-date">
+                Filter by date
+              </label>
+              <input
+                id="floor-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="h-9 rounded-md border border-[#E5E7EB] bg-white px-3 text-xs text-[#202124] outline-none transition-colors focus:border-[#B45309]"
+              />
+
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  fetchTables();
+                }}
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-3 text-xs font-semibold text-[#202124] transition-colors hover:bg-[#F8F9FA]"
+              >
+                <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                Refresh
+              </button>
+            </div>
           </div>
         </header>
 
-        <div className="flex-1 px-8 py-6">
+        {/* Grid */}
+        <div className="flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
           {loading ? (
-            <div className="py-20 text-center">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 animate-spin text-xl">
-                ⚙
-              </div>
-              <p className="text-zinc-400 text-xs mt-3">Loading restaurant floor plan…</p>
+            <div className="flex flex-col items-center justify-center gap-3 py-20">
+              <Loader2
+                className="h-6 w-6 animate-spin text-[#B45309]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+              <p className="text-xs text-[#6B7280]">Loading restaurant floor plan…</p>
+            </div>
+          ) : tables.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+              <Armchair className="h-8 w-8 text-[#B45309]" strokeWidth={1.25} aria-hidden="true" />
+              <p className="text-sm font-semibold text-[#202124]">No tables configured</p>
+              <p className="max-w-xs text-xs leading-relaxed text-[#6B7280]">
+                Run the seed script against your database to populate the floor plan.
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {tables.map((t) => (
-                <TableCard key={t.id} table={t} date={date} />
+                <TableCard key={t.id} table={t} />
               ))}
             </div>
           )}

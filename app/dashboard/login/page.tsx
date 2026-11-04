@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
+import { Utensils, Loader2, ArrowLeft, Lock, User } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('admin');
@@ -33,94 +34,140 @@ export default function LoginPage() {
     }
   }
 
-  return (
-    <div className="relative min-h-screen bg-gradient-to-br from-[#0c0907] via-[#080706] to-[#040404] flex items-center justify-center p-4">
-      {/* Ambient background glow */}
-      <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-80 w-80 rounded-full bg-orange-600/10 blur-[100px]" />
+  const inputClasses =
+    'h-11 w-full rounded-md border border-[#E5E7EB] bg-white px-3 pl-10 text-sm text-[#202124] placeholder:text-[#9CA3AF] outline-none transition-colors focus:border-[#B45309]';
 
-      <div className="relative z-10 w-full max-w-md">
-        {/* Brand Crest */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center justify-center w-18 h-18 rounded-3xl bg-gradient-to-br from-amber-500 via-orange-600 to-red-600 mb-4 shadow-xl shadow-orange-600/30 ring-1 ring-white/20 p-4">
-            <span className="text-3xl">🌶️</span>
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#F8F9FA] p-4">
+      <div className="w-full max-w-md">
+        {/* Brand */}
+        <div className="mb-8 text-center">
+          <Link
+            href="/"
+            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-[#B45309]"
+            aria-label="Spice Garden home"
+          >
+            <Utensils className="h-6 w-6 text-white" strokeWidth={1.75} aria-hidden="true" />
           </Link>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Spice Garden</h1>
-          <p className="text-amber-500/90 text-xs font-semibold uppercase tracking-wider mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-[#202124]">
+            Spice Garden
+          </h1>
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
             Restaurant Management Portal
           </p>
         </div>
 
-        {/* Login Card */}
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#141210]/95 to-[#0a0807]/95 p-8 shadow-2xl shadow-black/80 backdrop-blur-2xl">
-          <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
-            <div>
-              <h2 className="text-white font-bold text-lg">Staff Sign In</h2>
-              <p className="text-zinc-400 text-xs mt-0.5">Access live reservations &amp; floor plan</p>
+        {/* Card */}
+        <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 sm:p-8">
+          <div className="mb-6 border-b border-[#E5E7EB] pb-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-[#202124]">Staff Sign In</h2>
+                <p className="mt-1 text-xs text-[#6B7280]">
+                  Access live reservations &amp; floor plan
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                Manager
+              </span>
             </div>
-            <span className="text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">
-              Manager
-            </span>
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-5 text-red-300 text-xs">
+            <div
+              role="alert"
+              className="mb-5 rounded-md border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-medium text-[#DC2626]"
+            >
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5" htmlFor="username">
+              <label
+                className="mb-1.5 block text-xs font-medium text-[#202124]"
+                htmlFor="username"
+              >
                 Username
               </label>
-              <input
-                id="username"
-                type="text"
-                autoComplete="username"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition-colors"
-                placeholder="admin"
-              />
+              <div className="relative">
+                <User
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <input
+                  id="username"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className={inputClasses}
+                  placeholder="Username"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5" htmlFor="password">
+              <label
+                className="mb-1.5 block text-xs font-medium text-[#202124]"
+                htmlFor="password"
+              >
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition-colors"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <Lock
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={inputClasses}
+                  placeholder="Password"
+                />
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 text-white font-bold rounded-xl py-3 text-sm transition-all shadow-lg shadow-orange-600/20"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#B45309] text-sm font-semibold text-white transition-colors hover:bg-[#9A4508] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? 'Signing in…' : 'Sign in to Dashboard'}
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Signing in…
+                </>
+              ) : (
+                'Sign in to Dashboard'
+              )}
             </button>
           </form>
 
-          {/* Quick Demo Credentials Reminder */}
-          <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center">
-            <p className="text-[11px] text-zinc-400">
-              Demo Credentials: <span className="font-mono text-amber-400">admin</span> / <span className="font-mono text-amber-400">spicegarden123</span>
+          {/* Demo credentials reminder */}
+          <div className="mt-6 rounded-md border border-[#E5E7EB] bg-[#F8F9FA] px-4 py-3 text-center">
+            <p className="text-[11px] text-[#6B7280]">
+              Demo credentials: <span className="font-mono font-semibold text-[#202124]">admin</span>
+              {' / '}
+              <span className="font-mono font-semibold text-[#202124]">spicegarden123</span>
             </p>
           </div>
         </div>
 
-        <div className="text-center mt-6">
-          <Link href="/" className="text-xs text-zinc-500 hover:text-amber-400 transition-colors">
-            ← Back to Customer Voice Reservation
+        <div className="mt-6 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B7280] transition-colors hover:text-[#202124]"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            Back to customer voice reservation
           </Link>
         </div>
       </div>
