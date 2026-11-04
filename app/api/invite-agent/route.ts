@@ -273,7 +273,7 @@ function buildLlm(apiKey: string, tools: LlmTool[]) {
   if (apiKey.startsWith('AQ.') || apiKey.startsWith('AIzaSy')) {
     return new Gemini({
       apiKey,
-      model: modelOverride || 'gemini-3-flash-preview',
+      model: modelOverride || 'gemini-3.5-flash-lite',
       failureMessage: 'Please wait a moment. Ek pal rukiye.',
       maxHistory: 20,
       params: {
